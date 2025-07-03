@@ -7,6 +7,7 @@
 
 import Foundation
 import AVFoundation
+import Accelerate
 
 /// # Warning
 /// The order that you initialize `AudioPCMPlayer()` and `MicrophonePCMSampleVendor()` matters, unfortunately.
@@ -26,6 +27,7 @@ import AVFoundation
 internal class AudioPCMPlayer {
 
     let audioEngine: AVAudioEngine
+    var currentRMS: ((Float) -> Void)?
     private let inputFormat: AVAudioFormat
     private let playableFormat: AVAudioFormat
     private let playerNode: AVAudioPlayerNode
@@ -120,7 +122,9 @@ internal class AudioPCMPlayer {
             //    addGain(to: outPCMBuf, gain: 2.0)
             // }
             // #endif
-            self.playerNode.scheduleBuffer(outPCMBuf, at: nil, options: [], completionHandler: {})
+            self.playerNode.scheduleBuffer(outPCMBuf, at: nil, options: [], completionHandler: { [weak self] in
+                self?.currentRMS?(outPCMBuf.normalizedRMS)
+            })
             self.playerNode.play()
         }
     }
@@ -145,5 +149,51 @@ private func addGain(to buffer: AVAudioPCMBuffer, gain: Float) {
         for sampleIndex in 0..<frameLength {
             samples[sampleIndex] *= gain
         }
+    }
+}
+
+public extension AVAudioPCMBuffer {
+    
+    var rms: Float {
+        let frameLength = Int(frameLength)
+        
+        switch format.commonFormat {
+        case .pcmFormatFloat32:
+            guard let channelData = floatChannelData?[0] else { return 0 }
+            var rms: Float = 0
+            vDSP_rmsqv(channelData, 1, &rms, vDSP_Length(frameLength))
+            return rms
+            
+        case .pcmFormatInt16:
+            guard let channelData = int16ChannelData?[0] else { return 0 }
+            
+            var floats = [Float](repeating: 0, count: frameLength)
+            vDSP_vflt16(channelData, 1, &floats, 1, vDSP_Length(frameLength))
+            
+            var normalized = [Float](repeating: 0, count: frameLength)
+            var scale: Float = 1.0 / 32768.0
+            vDSP_vsmul(&floats, 1, &scale, &normalized, 1, vDSP_Length(frameLength))
+            
+            var rms: Float = 0
+            vDSP_rmsqv(&normalized, 1, &rms, vDSP_Length(frameLength))
+            return rms
+            
+        default:
+            print("Unsupported AVAudioPCMBuffer format: ", format)
+            return 0
+        }
+    }
+    
+    var rmsdB: Float {
+        let minRMS: Float = 0.000_000_1
+        return 20 * log10(max(rms, minRMS))
+    }
+    
+    var normalizedRMS: Float {
+        let minDb: Float = -50
+        let maxDb: Float = 0
+        let clamped = max(min(rmsdB, maxDb), minDb)
+        let normalized = (clamped - minDb) / (maxDb - minDb)
+        return max(0.08, normalized)
     }
 }
