@@ -5,9 +5,9 @@
 //  Created by Lou Zell on 3/13/25.
 //
 
+import Foundation
+
 /// https://platform.openai.com/docs/api-reference/responses/object
-// Implementor's note:
-// See 'class Response' in `src/openai/types/responses/response.py `
 public struct OpenAIResponse: Decodable {
     /// Unix timestamp (in seconds) of when this Response was created.
     public let createdAt: Double?
@@ -21,10 +21,32 @@ public struct OpenAIResponse: Decodable {
     /// Details about why the response is incomplete.
     public let incompleteDetails: IncompleteDetails?
 
+    public enum Instructions: Decodable {
+        case text(String)
+        case inputs([OpenAIResponse.Input.InputItem])
+        case unknown
+
+        public init(from decoder: any Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            if let str = try? container.decode(String.self) {
+                self = .text(str)
+                return
+            }
+
+            if let inputs = try? container.decode([OpenAIResponse.Input.InputItem].self) {
+                self = .inputs(inputs)
+                return
+            }
+
+            // I want to prevent hard-crashes if the API shape of instructions changes again
+            self = .unknown
+        }
+    }
+
     /// Inserts a system (or developer) message as the first item in the model's context.
     /// When using along with `previousResponseId`, the instructions from a previous response will not be carried over to the next response.
     /// This makes it simple to swap out system (or developer) messages in new responses.
-    public let instructions: String?
+    public let instructions: Instructions?
 
     /// An upper bound for the number of tokens that can be generated for a response, including visible output tokens and [reasoning tokens](https://platform.openai.com/docs/guides/reasoning).
     public let maxOutputTokens: Int?
@@ -61,12 +83,14 @@ public struct OpenAIResponse: Decodable {
     /// One of `completed`, `failed`, `in_progress`, or `incomplete`.
     public let status: Status?
 
+    /// This field is not well-named; it's a configuration field that controls the response text, not the response text itself.
+    ///
     /// Configuration options for a text response from the model.
     /// Can be plain text or structured JSON data.
     /// Learn more:
     /// - [Text inputs and outputs](https://platform.openai.com/docs/guides/text)
     /// - [Structured Outputs](https://platform.openai.com/docs/guides/structured-outputs)
-    public let text: ResponseTextConfig?
+    public let text: OpenAIResponse.TextConfiguration?
 
     /// What sampling temperature to use, between 0 and 2.
     /// Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.
@@ -103,7 +127,29 @@ public struct OpenAIResponse: Decodable {
     /// [Learn more](https://platform.openai.com/docs/guides/safety-best-practices#end-user-ids).
     public let user: String?
     
-    public init(createdAt: Double?, error: ResponseError?, id: String?, incompleteDetails: IncompleteDetails?, instructions: String?, maxOutputTokens: Int?, metadata: [String : String]?, model: String?, output: [ResponseOutputItem], parallelToolCalls: Bool?, previousResponseId: String?, reasoning: Reasoning?, status: Status?, text: ResponseTextConfig?, temperature: Double?, toolChoice: OpenAICreateResponseRequestBody.ToolChoice?, tools: [OpenAICreateResponseRequestBody.Tool]?, topP: Double?, truncation: String?, usage: ResponseUsage?, user: String?) {
+    public init(
+        createdAt: Double?,
+        error: ResponseError?,
+        id: String?,
+        incompleteDetails: IncompleteDetails?,
+        instructions: Instructions?,
+        maxOutputTokens: Int?,
+        metadata: [String : String]?,
+        model: String?,
+        output: [ResponseOutputItem],
+        parallelToolCalls: Bool?,
+        previousResponseId: String?,
+        reasoning: Reasoning?,
+        status: Status?,
+        text: OpenAIResponse.TextConfiguration?,
+        temperature: Double?,
+        toolChoice: OpenAICreateResponseRequestBody.ToolChoice?,
+        tools: [OpenAICreateResponseRequestBody.Tool]?,
+        topP: Double?,
+        truncation: String?,
+        usage: ResponseUsage?,
+        user: String?
+    ) {
         self.createdAt = createdAt
         self.error = error
         self.id = id
@@ -209,10 +255,6 @@ extension OpenAIResponse {
         case inProgress = "in_progress"
     }
 
-    public struct ResponseTextConfig: Decodable {
-        let format: Format
-    }
-
     /// Represents the literal options: "none", "auto", or "required".
     public enum ToolChoiceOptions: String, Decodable {
         case none = "none"
@@ -248,33 +290,6 @@ extension OpenAIResponse.Reasoning {
         case low
         case medium
         case high
-    }
-}
-
-extension OpenAIResponse.ResponseTextConfig {
-    public enum Format: String, Decodable {
-        case jsonSchema = "json_schema"
-        case text = "text"
-
-        private enum CodingKeys: String, CodingKey {
-            case type
-        }
-        public init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            let formatValue = try container.decode(String.self, forKey: .type)
-            switch formatValue {
-            case "json_schema":
-                self = .jsonSchema
-            case "text":
-                self = .text
-            default:
-                throw DecodingError.dataCorruptedError(
-                    forKey: .type,
-                    in: container,
-                    debugDescription: "Unknown format type: \(formatValue)"
-                )
-            }
-        }
     }
 }
 
@@ -397,22 +412,24 @@ extension OpenAIResponse {
 
 extension OpenAIResponse {
     public struct ResponseOutputMessage: Decodable {
-        public let id: String
-        public let type = "message"
-        public let status: String
-        public let role: String
         public let content: [Content]
+        public let id: String?
+        public let role: String?
+        public let status: String?
 
         private enum CodingKeys: String, CodingKey {
-            case id
-            case status
-            case role
             case content
+            case id
+            case role
+            case status
         }
     }
 
     public enum Content: Decodable {
+        /// A text output from the model.
         case outputText(OutputText)
+
+        /// A refusal from the model.
         case refusal(String)
 
         private enum CodingKeys: String, CodingKey {
@@ -477,7 +494,7 @@ extension OpenAIResponse {
     public struct URLCitation: Decodable {
         public let startIndex: Int
         public let endIndex: Int
-        public let url: String
+        public let url: URL
         public let title: String
 
         private enum CodingKeys: String, CodingKey {

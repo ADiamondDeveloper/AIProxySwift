@@ -383,7 +383,7 @@ On macOS, use `NSImage(named:)` in place of `UIImage(named:)`
     }
 
     guard let imageURL = AIProxy.encodeImageAsURL(image: image, compressionQuality: 0.6) else {
-        print("Could not convert image to OpenAI's imageURL format")
+        print("Could not encode image as data URL")
         return
     }
 
@@ -486,7 +486,62 @@ This snippet will print out the URL of an image generated with `dall-e-3`:
     }
 ```
 
-### How to edit an image with OpenAI's gpt-image-1
+### How to make a high fidelity image edit with OpenAI's gpt-image-1
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openAIService = AIProxy.openAIDirectService(
+    //     unprotectedAPIKey: "your-openai-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openAIService = AIProxy.openAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+    let openAIService = getOpenAIService(config)
+
+    guard let image = UIImage(named: "my-image") else {
+        print("Could not find an image named 'my-image' in your app assets")
+        return
+    }
+
+    guard let jpegData = AIProxy.encodeImageAsJpeg(image: image, compressionQuality: 0.5) else {
+        print("Could not encode image as jpeg")
+        return
+    }
+
+    let requestBody = OpenAICreateImageEditRequestBody(
+        images: [.jpeg(jpegData)],
+        prompt: "Change the coffee cup to red",
+        inputFidelity: .high,
+        model: .gptImage1
+    )
+
+    do {
+        let response = try await openAIService.createImageEditRequest(
+            body: requestBody,
+            secondsToWait: 300
+        )
+        guard let base64Data = response.data.first?.b64JSON,
+              let imageData = Data(base64Encoded: base64Data),
+              let editedImage = UIImage(data: imageData) else {
+            print("Could not create a UIImage out of the base64 returned by OpenAI")
+            return
+        }
+
+        // Do something with 'editedImage' here
+
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received non-200 status code: \(statusCode) with response body: \(responseBody)")
+    } catch {
+        print("Could not create OpenAI edit image generation: \(error.localizedDescription)")
+    }
+```
+
+### How to upload multiple images for use in an image edit with OpenAI's gpt-image-1
 
 - This snippet uploads two images to `gpt-image-1`, transfering the material of one to the other.
 - One image is uploaded as a png and the other as a jpeg.
@@ -1301,7 +1356,8 @@ final class RealtimeManager {
 }
 ```
 
-### How to make a basic request using OpenAI's Responses API (new)
+### How to make a basic request using OpenAI's Responses API
+Note: there is also a streaming version of this snippet below.
 
 ```swift
     import AIProxy
@@ -1319,8 +1375,10 @@ final class RealtimeManager {
 
     let requestBody = OpenAICreateResponseRequestBody(
         input: .text("hello world"),
-        previousResponseId: nil,  // Pass this in on future requests to save chat history
-        model: "gpt-4o"
+        model: "gpt-5",
+        reasoning: .init(effort: .minimal, summary: .detailed),  // Optional: Use minimal effort with auto summary
+        text: .init(verbosity: .high),                           // Optional: Use low verbosity for concise responses
+        previousResponseId: nil                                  // Pass this in on future requests to save chat history
     )
 
     do {
@@ -1333,7 +1391,7 @@ final class RealtimeManager {
     }
 ```
 
-### How to make a streaming request using OpenAI's Responses API (new)
+### How to make a Structured Outputs request with OpenAI's Responses API
 
 ```swift
     import AIProxy
@@ -1348,27 +1406,161 @@ final class RealtimeManager {
     //     partialKey: "partial-key-from-your-developer-dashboard",
     //     serviceURL: "service-url-from-your-developer-dashboard"
     // )
+
+    let schema: [String: AIProxyJSONValue] = [
+        "type": "object",
+        "properties": [
+            "colors": [
+                "type": "array",
+                "items": [
+                    "type": "object",
+                    "properties": [
+                        "name": [
+                            "type": "string",
+                            "description": "A descriptive name to give the color"
+                        ],
+                        "hex_code": [
+                            "type": "string",
+                            "description": "The hex code of the color"
+                        ]
+                    ],
+                    "required": ["name", "hex_code"],
+                    "additionalProperties": false
+                ]
+            ]
+        ],
+        "required": ["colors"],
+        "additionalProperties": false
+    ]
     let requestBody = OpenAICreateResponseRequestBody(
-        input: .text("hello world"),
+        input: .items([
+            .message(role: .system, content: .text("You are a color palette generator")),
+            .message(role: .user, content: .text("Return a peaches and cream color palette"))
+        ]),
+        model: "gpt-4o",
+        text: .init(
+            format: .jsonSchema(
+                name: "palette",
+                schema: schema,
+                description: "A list of colors that make up a color pallete",
+                strict: true
+            )
+        )
+    )
+
+    do {
+        let response = try await openAIService.createResponse(
+            requestBody: requestBody,
+            secondsToWait: 120
+        )
+        print(response.outputText)
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received \(statusCode) status code with response body: \(responseBody)")
+    } catch {
+        print("Could not get a structured output response from OpenAI: \(error.localizedDescription)")
+    }
+```
+
+### How to make a JSON mode request with OpenAI's Responses API
+
+Please also see the Structured Outputs snippet above, which is a more modern way of getting a JSON response
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openAIService = AIProxy.openAIDirectService(
+    //     unprotectedAPIKey: "your-openai-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openAIService = AIProxy.openAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    let requestBody = OpenAICreateResponseRequestBody(
+        input: .items([
+            .message(role: .system, content: .text("Return valid JSON only")),
+            .message(role: .user, content: .text("Return alice and bob in a list of names"))
+        ]),
+        model: "gpt-4o",
+        text: .init(format: .jsonObject)
+    )
+
+    do {
+        let response = try await openAIService.createResponse(
+            requestBody: requestBody,
+            secondsToWait: 120
+        )
+        print(response.outputText)
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received \(statusCode) status code with response body: \(responseBody)")
+    } catch {
+        print("Could not get a JSON mode response from OpenAI: \(error.localizedDescription)")
+    }
+```
+
+### How to use an image as input (multi-modal) using OpenAI's Responses API
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openAIService = AIProxy.openAIDirectService(
+    //     unprotectedAPIKey: "your-openai-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openAIService = AIProxy.openAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    guard let image = UIImage(named: "myImage") else {
+        print("Could not find an image named 'myImage' in your app assets")
+        return
+    }
+
+    guard let imageURL = AIProxy.encodeImageAsURL(image: image, compressionQuality: 0.5) else {
+        print("Could not encode image as data URL")
+        return
+    }
+
+    let requestBody = OpenAICreateResponseRequestBody(
+        input: .items(
+            [
+                .message(
+                    role: .system,
+                    content: .text("You are a visual assistant")
+                ),
+                .message(
+                    role: .user,
+                    content: .list([
+                        .text("What do you see?"),
+                        .imageURL(imageURL)
+                    ])
+                )
+            ]
+        ),
         model: "gpt-4o"
     )
 
     do {
-        let stream = try await openAIService.createStreamingResponse(requestBody: requestBody)
-        for try await chunk in stream {
-            if let textDelta = chunk.textDelta {
-                print(textDelta)
-            }
-        }
+        let response = try await openAIService.createResponse(
+            requestBody: requestBody,
+            secondsToWait: 60
+        )
+        print(response.outputText)
     } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
         print("Received \(statusCode) status code with response body: \(responseBody)")
     } catch {
-        print("Could not get a streaming response from OpenAI: \(error.localizedDescription)")
+        print("Could not create a multi-modal OpenAI Response: \(error.localizedDescription)")
     }
 ```
 
-
-### How to upload a file to OpenAI's file storage
+### How to make a web search call using OpenAI's Responses API
+Note: there is also a streaming version of this snippet below.
 
 ```swift
     import AIProxy
@@ -1384,27 +1576,29 @@ final class RealtimeManager {
     //     serviceURL: "service-url-from-your-developer-dashboard"
     // )
 
+    let requestBody = OpenAICreateResponseRequestBody(
+        input: .text("What is Apple's stock price today?"),
+        model: "gpt-4o",
+        tools: [
+            .webSearch(.init(searchContextSize: .low))
+        ]
+    )
+
     do {
-        let openAIFile = try await openAIService.uploadFile(
-            contents: pdfData,
-            name: "my.pdf",
-            purpose: "user_data"
-        )
-        print("""
-              File uploaded to OpenAI's media storage.
-              It will be available until \(openAIFile.expiresAt.flatMap {String($0)} ?? "forever")
-              Use it in subsequent requests with ID: \(openAIFile.id)
-              """)
+        let response = try await openAIService.createResponse(requestBody: requestBody)
+        print(response.outputText)
     } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
-        print("Received non-200 status code: \(statusCode) with response body: \(responseBody)")
+        print("Received \(statusCode) status code with response body: \(responseBody)")
     } catch {
-        print("Could not upload file to OpenAI: \(error.localizedDescription)")
+        print("Could not get web search result from OpenAI: \(error.localizedDescription)")
     }
 ```
 
-### How to use a stored file in an OpenAI prompt using the Responses API (new)
+### How to use a stored file in an OpenAI prompt using the Responses API
 
-Replace the `fileID` with the ID returned from the snippet above.
+Note: This example is for including a file in a prompt. For searching through a file, see the vector store examples below.
+
+Replace the `fileID` with the ID returned from the snippet `How to upload a file to OpenAI's file storage`
 
 ```swift
     import AIProxy
@@ -1494,6 +1688,410 @@ Replace the `fileID` with the ID returned from the snippet above.
     } catch {
         print("Could not prompt with image inputs: \(error.localizedDescription)")
     }
+```
+
+### How to create a vector store with default chunking on OpenAI
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openAIService = AIProxy.openAIDirectService(
+    //     unprotectedAPIKey: "your-openai-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openAIService = AIProxy.openAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+
+    let requestBody = OpenAICreateVectorStoreRequestBody(
+        chunkingStrategy: .auto,
+        name: "my-vector-store"
+    )
+    do {
+        let vectorStore = try await openAIService.createVectorStore(
+            requestBody: requestBody,
+            secondsToWait: 60
+        )
+        print("Created vector store with id: \(vectorStore.id)")
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received \(statusCode) status code with response body: \(responseBody)")
+    } catch {
+        print("Could not create an OpenAI vector store: \(error.localizedDescription)")
+    }
+```
+
+### How to create a vector store with specific chunking on OpenAI
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openAIService = AIProxy.openAIDirectService(
+    //     unprotectedAPIKey: "your-openai-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openAIService = AIProxy.openAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    let requestBody = OpenAICreateVectorStoreRequestBody(
+        chunkingStrategy: .static(chunkOverlapTokens: 300, maxChunkSizeTokens: 700),
+        name: "my-vector-store"
+    )
+
+    do {
+        let vectorStore = try await openAIService.createVectorStore(
+            requestBody: requestBody,
+            secondsToWait: 60
+        )
+        print("Created vector store with id: \(vectorStore.id)")
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received \(statusCode) status code with response body: \(responseBody)")
+    } catch {
+        print("Could not create an OpenAI vector store: \(error.localizedDescription)")
+    }
+```
+
+### How to upload a file to OpenAI's file storage
+
+Add the file `The-Swift-Programming-Language.pdf` to your Xcode project tree.
+This will upload the pdf to OpenAI for use in a future vector store request:
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openAIService = AIProxy.openAIDirectService(
+    //     unprotectedAPIKey: "your-openai-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openAIService = AIProxy.openAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    guard let localURL = Bundle.main.url(forResource: "The-Swift-Programming-Language", withExtension: "pdf"),
+          let pdfData = try? Data(contentsOf: localURL) else {
+        print("Drop The-Swift-Programming-Language.pdf file the project tree first.")
+        return
+    }
+
+    do {
+        let openAIFile = try await openAIService.uploadFile(
+            contents: pdfData,
+            name: "The-Swift-Programming-Language.pdf",
+            purpose: .userData,
+            secondsToWait: 300
+        )
+        print("""
+              File uploaded to OpenAI's media storage.
+              It will be available until \(openAIFile.expiresAt.flatMap {String($0)} ?? "forever")
+              Use it in subsequent requests with ID: \(openAIFile.id)
+              """)
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received non-200 status code: \(statusCode) with response body: \(responseBody)")
+    } catch {
+        print("Could not upload file to OpenAI: \(error.localizedDescription)")
+    }
+```
+
+### How to add an uploaded file to an OpenAI vector store
+
+You'll need two IDs for this snippet:
+1. The file ID returned in the `How to upload a file to OpenAI's file storage` snippet
+2. The vector store ID returned in the `How to create a vector store with default chunking on OpenAI` snippet
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openAIService = AIProxy.openAIDirectService(
+    //     unprotectedAPIKey: "your-openai-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openAIService = AIProxy.openAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    let fileID = /* ID from the file upload example */
+    let vectorStoreID = /* ID from the vector store example */
+
+    let requestBody = OpenAICreateVectorStoreFileRequestBody(
+        fileID: fileID
+    )
+    do {
+        let vectorStoreFile = try await openAIService.createVectorStoreFile(
+            vectorStoreID: vectorStoreID,
+            requestBody: requestBody,
+            secondsToWait: 120
+        )
+        print("Created vector store file with id: \(vectorStoreFile.id ?? "unknown")")
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received \(statusCode) status code with response body: \(responseBody)")
+    } catch {
+        print("Could not create an OpenAI vector store file: \(error.localizedDescription)")
+    }
+```
+
+### How to make a streaming request using OpenAI's Responses API
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openAIService = AIProxy.openAIDirectService(
+    //     unprotectedAPIKey: "your-openai-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openAIService = AIProxy.openAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+    let requestBody = OpenAICreateResponseRequestBody(
+        input: .text("hello world"),
+        model: "gpt-4o"
+    )
+
+    do {
+        let stream = try await openAIService.createStreamingResponse(requestBody: requestBody)
+        for try await event in stream {
+            switch event {
+            case .outputTextDelta(let outputTextDelta):
+                print(outputTextDelta.delta)
+            default:
+                break
+            }
+        }
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received \(statusCode) status code with response body: \(responseBody)")
+    } catch {
+        print("Could not get a streaming response from OpenAI: \(error.localizedDescription)")
+    }
+```
+
+### How to make a streaming function call through OpenAI's Responses API
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openAIService = AIProxy.openAIDirectService(
+    //     unprotectedAPIKey: "your-openai-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openAIService = AIProxy.openAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    let schema: [String: AIProxyJSONValue] = [
+        "type": "object",
+        "properties": [
+            "location": [
+                "type": "string",
+                "description": "City and country e.g. Bogotá, Colombia"
+            ]
+        ],
+        "required": ["location"],
+        "additionalProperties": false
+    ]
+
+    let requestBody = OpenAICreateResponseRequestBody(
+        input: .text("What is the weather like in Paris today?"),
+        model: "gpt-4o",
+        tools: [
+            .function(
+                .init(
+                    name: "get_weather",
+                    parameters: schema
+                )
+            )
+        ]
+    )
+
+    do {
+        let stream = try await openAIService.createStreamingResponse(requestBody: requestBody)
+        for try await event in stream {
+            switch event {
+            case .functionCallArgumentsDelta(let functionCallArgumentsDelta):
+                print(functionCallArgumentsDelta.delta)
+            default:
+                break
+            }
+        }
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received \(statusCode) status code with response body: \(responseBody)")
+    } catch {
+        print("Could not get a streaming response from OpenAI: \(error.localizedDescription)")
+    }
+```
+
+### How to make a streaming web search call through OpenAI's Responses API
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openAIService = AIProxy.openAIDirectService(
+    //     unprotectedAPIKey: "your-openai-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openAIService = AIProxy.openAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    let requestBody = OpenAICreateResponseRequestBody(
+        input: .text("What is Apple's stock price today?"),
+        model: "gpt-4o",
+        tools: [
+            .webSearch(.init(searchContextSize: .low))
+        ]
+    )
+
+    do {
+        let stream = try await openAIService.createStreamingResponse(requestBody: requestBody)
+        for try await event in stream {
+            switch event {
+            case .outputTextDelta(let outputTextDelta):
+                print(outputTextDelta.delta)
+            default:
+                break
+            }
+        }
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received \(statusCode) status code with response body: \(responseBody)")
+    } catch {
+        print("Could not get a text response from OpenAI: \(error.localizedDescription)")
+    }
+```
+
+### How to make a streaming file search call through OpenAI's Responses API
+
+To run this snippet, you'll first need to add your files to a vector store.
+See the snippet above titled `How to add an uploaded file to an OpenAI vector store`.
+Once your files are added and processed, you can run this snippet on your `vectorStoreID`.
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openAIService = AIProxy.openAIDirectService(
+    //     unprotectedAPIKey: "your-openai-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openAIService = AIProxy.openAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    let vectorStoreID = /* your vector store ID */
+    let requestBody = OpenAICreateResponseRequestBody(
+        input: .text("How do I use 'async let'?"),
+        model: "gpt-4o",
+        tools: [
+            .fileSearch(
+                .init(
+                    vectorStoreIDs: [
+                        vectorStoreID
+                    ]
+                )
+            )
+        ]
+    )
+    do {
+        let stream = try await openAIService.createStreamingResponse(requestBody: requestBody)
+        for try await event in stream {
+            switch event {
+            case .outputTextDelta(let outputTextDelta):
+                print(outputTextDelta.delta)
+            case .outputTextAnnotationAdded(let outputTextAnnotationAdded):
+                if case .fileCitation(let fileCitation) = outputTextAnnotationAdded.annotation {
+                    print("Citing: \(fileCitation.filename) at index: \(fileCitation.index)")
+                }
+            default:
+                break
+            }
+        }
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received \(statusCode) status code with response body: \(responseBody)")
+    } catch {
+        print("Could not get a text response from OpenAI: \(error.localizedDescription)")
+    }
+```
+
+### How to use prompt templates with the OpenAI Responses API
+
+- Follow OpenAI's guide for [creating a prompt](https://platform.openai.com/docs/guides/prompting#create-a-prompt).
+- Use the returned prompt ID in the snippet below
+- Fill in the prompt variables as part of the request body (for example, I used the variable 'topic' below)
+
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openAIService = AIProxy.openAIDirectService(
+    //     unprotectedAPIKey: "your-openai-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openAIService = AIProxy.openAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    let templateID = "<your-prompt-ID-here>"
+    let requestBody = OpenAICreateResponseRequestBody(
+        model: "gpt-5",
+        prompt: .init(
+            id: templateID,
+            variables: [
+                "topic": .text("sandwiches")
+            ],
+            version: "1"
+        )
+    )
+    do {
+        // Uncomment for the buffered case:
+        let response = try await openAIService.createResponse(
+            requestBody: requestBody,
+            secondsToWait: 60
+        )
+        print(response.outputText)
+
+        // Uncomment for the streaming case:
+        // let stream = try await openAIService.createStreamingResponse(
+        //     requestBody: requestBody,
+        //     secondsToWait: 60
+        // )
+        // for try await event in stream {
+        //     switch event {
+        //     case .outputTextDelta(let outputTextDelta):
+        //         print(outputTextDelta.delta)
+        //     default:
+        //         break
+        //     }
+        // }
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received \(statusCode) status code with response body: \(responseBody)")
+    } catch {
+        print("Could not get a text response from OpenAI: \(error.localizedDescription)")
+    }
+}
 ```
 
 ### How to use OpenAI through an Azure deployment
@@ -4370,7 +4968,7 @@ See `FalFluxLoRAInputSchema.swift` for the full range of inference controls
     }
 
     guard let imageURL = AIProxy.encodeImageAsURL(image: image, compressionQuality: 0.5) else {
-        print("Could not encode image as a data URI")
+        print("Could not encode image as a data URL")
         return
     }
 
@@ -4787,6 +5385,98 @@ Use `flows.eachlabs.ai` as the proxy domain when creating your AIProxy service i
     }
 ```
 
+### How to call Imagen on EachAI
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let eachAIService = AIProxy.eachAIDirectService(
+    //     unprotectedAPIKey: "your-eachAI-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let eachAIService = AIProxy.eachAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    let input: EachAIImagenInput = EachAIImagenInput(prompt: "a skier")
+
+    do {
+        let url = try await eachAIService.createImagen4FastImage(
+            input: input,
+            pollAttempts: 60,
+            secondsBetweenPollAttempts: 2
+        )
+        print("Your imagen output is available at: \(url)")
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received non-200 status code: \(statusCode) with response body: \(responseBody)")
+    } catch {
+        print("Could not run Imagen 4 on EachAI: \(error.localizedDescription)")
+    }
+```
+
+### How to call Google Veo 3 Fast (Image to Video) on EachAI
+
+The snippet below costs a few dollars per run on EachAI.
+We recommend first running the Imagen example above, which is cheap.
+This way you ensure that your EachAI + AIProxy integration is working correctly before kicking off many Veo runs.
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let eachAIService = AIProxy.eachAIDirectService(
+    //     unprotectedAPIKey: "your-eachAI-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let eachAIService = AIProxy.eachAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+     // This model on EachAI does not currently accept a data URL. So you have to host the image somewhere first.
+    let imageURL = URL(string: "https://storage.googleapis.com/magicpoint/inputs/veo3-fast-i2v-input.jpeg")!
+    let input = EachAIVeoInput(
+        imageURL: imageURL,
+        prompt: """
+            Cinematic video set in a bioluminescent underwater cave system on
+            an alien ocean world, illuminated by glowing turquoise and violet
+            corals. The scene opens with a smooth tracking shot through a
+            tunnel of shimmering water, revealing a vast cavern where a swarm
+            of robotic fish, each engraved with the 'eachlabs.ai' logo, swims
+            in synchronized patterns. The camera follows the swarm as they
+            weave through towering coral structures, their metallic bodies
+            reflecting the cave’s radiant glow. A faint, rhythmic pulse of
+            light emanates from the corals, creating a hypnotic effect.
+            Suddenly, a massive, bioluminescent jellyfish-like creature drifts
+            into view, its tentacles gently pulsating as it emits a low,
+            resonant hum.  The audio includes the soft gurgle of water, a
+            futuristic ambient soundtrack with ethereal tones, and the
+            jellyfish’s hum synced with its movements. The video ends with a
+            slow zoom-out, showing the swarm of robotic fish forming the shape
+            of the 'eachlabs.ai' logo against the glowing cave backdrop,
+            followed by a gentle fade to black. The style is photorealistic,
+            with realistic fluid dynamics, vibrant lighting, and an immersive,
+            otherworldly aesthetic.
+            """
+    )
+    do {
+        let url = try await eachAIService.createVeo3FastVideo(
+            input: input,
+            pollAttempts: 60,
+            secondsBetweenPollAttempts: 10
+        )
+        print("Your veo3 output is available at: \(url)")
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received non-200 status code: \(statusCode) with response body: \(responseBody)")
+    } catch {
+        print("Could not run Veo3 on EachAI: \(error.localizedDescription)")
+    }
+```
+
 ***
 
 ## OpenRouter
@@ -5055,6 +5745,73 @@ And then use the corresponding enum from this list: https://openrouter.ai/docs/f
 ```
 
 
+### How to make a streaming tool call with OpenRouter
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openRouterService = AIProxy.openRouterDirectService(
+    //     unprotectedAPIKey: "your-openRouter-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openRouterService = AIProxy.openRouterService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    let requestBody = OpenRouterChatCompletionRequestBody(
+        messages: [
+            .user(
+                content: .text("What is the weather in SF?")
+            )
+        ],
+        models: [
+            "openai/gpt-4.1",
+            // Add additional models here
+        ],
+        route: .fallback,
+        tools: [
+            .function(
+                name: "get_weather",
+                description: "Get current temperature for a given location.",
+                parameters: [
+                    "type": "object",
+                    "properties": [
+                        "location": [
+                            "type": "string",
+                            "description": "City and country e.g. Bogotá, Colombia"
+                        ]
+                    ],
+                    "required": ["location"],
+                    "additionalProperties": false
+                ],
+                strict: true
+            )
+        ]
+    )
+    do {
+        let stream = try await openRouterService.streamingChatCompletionRequest(body: requestBody)
+        for try await chunk in stream {
+            guard let toolCall = chunk.choices.first?.delta.toolCalls?.first else {
+                continue
+            }
+            if let name = toolCall.function?.name {
+                print("Model wants to call the function \(name) with arguments:")
+            }
+            print(toolCall.function?.arguments ?? "")
+        }
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received non-200 status code: \(statusCode) with response body: \(responseBody)")
+    } catch {
+        print("Could not get OpenRouter streaming tool call: \(error.localizedDescription)")
+    }
+}
+
+```
+
+
 ### How to make a structured outputs chat completion with OpenRouter
 
 ```swift
@@ -5162,7 +5919,7 @@ On macOS, use `NSImage(named:)` in place of `UIImage(named:)`
     }
 
     guard let imageURL = AIProxy.encodeImageAsURL(image: image, compressionQuality: 0.6) else {
-        print("Could not encode image as a data URI")
+        print("Could not encode image as a data URL")
         return
     }
 
@@ -5729,6 +6486,38 @@ when you view top users, or the timeline of requests, your client IDs will be fa
 If you do not have existing client or user IDs, no problem! Leave the `clientID` argument
 out, and we'll generate IDs for you. See `AIProxyIdentifier.swift` if you would like to see
 ID generation specifics.
+
+### How to respond to DeviceCheck errors
+
+Apple's DeviceCheck is a core component of our security model.
+
+If your app can't generate a DeviceCheck token from the device, then it is unable to make a request to AIProxy's backend.
+In such a case, you can pop UI to the end user by catching AIProxyError.deviceCheckIsUnavailble:
+
+```swift
+    let requestBody = OpenAIChatCompletionRequestBody(
+        model: "gpt-4.1-mini-2025-04-14",
+        messages: [
+            .system(content: .text("You are a helpful assistant")),
+            .user(content: .text("hello world"))
+        ]
+    )
+
+    do {
+        let response = try await openAIService.chatCompletionRequest(
+            body: requestBody,
+            secondsToWait: 60
+        )
+    } catch let error as AIProxyError where error == .deviceCheckIsUnavailable {
+        // Pop UI to the end user here. Here is a sample message:
+        //
+        //     We could not create a required credential to make your AI request.
+        //     Please make sure you are connected to the internet and your system clock is accurately set.
+        //
+    } catch {
+        print("Could not create an OpenAI chat completion: \(error.localizedDescription)")
+    }
+```
 
 
 ### How to catch Foundation errors for specific conditions

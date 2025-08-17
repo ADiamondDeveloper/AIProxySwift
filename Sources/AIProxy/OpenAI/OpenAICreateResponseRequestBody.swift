@@ -17,12 +17,42 @@ import Foundation
 public struct OpenAICreateResponseRequestBody: Encodable {
 
     /// Text, image, or file inputs to the model, used to generate a response.
-    public let input: Input
+    public let input: OpenAIResponse.Input?
 
     /// Model ID used to generate the response, like gpt-4o or o1.
     /// OpenAI offers a wide range of models with different capabilities, performance characteristics, and price points.
     /// Refer to the model guide to browse and compare available models: https://platform.openai.com/docs/models
-    public let model: String
+    public let model: String?
+
+    /// Whether to allow the model to run tool calls in parallel.
+    /// Defaults to true if not specified.
+    public let parallelToolCalls: Bool?
+
+    /// The unique ID of the previous response to the model. Use this to create multi-turn conversations.
+    /// Learn more: https://platform.openai.com/docs/guides/conversation-state
+    public let previousResponseId: String?
+
+    /// Reference to a prompt template and its variables
+    /// Learn more: https://platform.openai.com/docs/guides/text?api-mode=responses#reusable-prompts
+    public let prompt: Prompt?
+
+    /// o-series models only
+    /// Configuration options for reasoning models.
+    public let reasoning: Reasoning?
+
+    /// If set, partial response deltas will be sent as server-sent events.
+    /// Set this to true when using the streaming response method.
+    public var stream: Bool?
+
+    /// What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the output more random,
+    /// while lower values like 0.2 will make it more focused and deterministic.
+    public let temperature: Double?
+
+    /// Configuration options for a text response from the model. Can be plain text or structured JSON data.
+    public let text: OpenAIResponse.TextConfiguration?
+
+    /// How the model should select which tool (or tools) to use when generating a response.
+    public let toolChoice: ToolChoice?
 
     /// An array of tools the model may call while generating a response.
     /// You can specify which tool to use by setting the tool_choice parameter.
@@ -33,49 +63,17 @@ public struct OpenAICreateResponseRequestBody: Encodable {
     ///   enabling the model to call your own code.
     public let tools: [Tool]?
 
-    /// How the model should select which tool (or tools) to use when generating a response.
-    public let toolChoice: ToolChoice?
-
-    /// o-series models only
-    /// Configuration options for reasoning models.
-    public let reasoning: Reasoning?
-
-    /// Whether to allow the model to run tool calls in parallel.
-    /// Defaults to true if not specified.
-    public let parallelToolCalls: Bool?
-
-    /// The unique ID of the previous response to the model. Use this to create multi-turn conversations.
-    /// Learn more: https://platform.openai.com/docs/guides/conversation-state
-    public let previousResponseId: String?
+    /// An alternative to sampling with temperature, called nucleus sampling, where the model considers the results of the tokens with `topP` probability mass.
+    /// So 0.1 means only the tokens comprising the top 10% probability mass are considered.
+    /// We generally recommend altering this or temperature but not both.
+    public let topP: Double?
 
     /// The truncation strategy to use for the model response.
-    public enum Truncation: String, Encodable {
-       /// disabled (default): If a model response will exceed the context window size for a model, the request will fail with a 400 error.
-        case disabled
-        /// auto: If the context of this response and previous ones exceeds the model's context window size, the model will truncate the response to fit the context window by dropping input items in the middle of the conversation.
-        case auto
-    }
     public let truncation: Truncation?
-    
-    /// If set, partial response deltas will be sent as server-sent events.
-    /// Set this to true when using the streaming response method.
-    public var stream: Bool?
-    
-    /// What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the output more random,
-    /// while lower values like 0.2 will make it more focused and deterministic.
-    public let temperature: Double?
-    
-    /// An alternative to sampling with temperature, called nucleus sampling, where the model considers the results
-    /// of the tokens with top_p probability mass. So 0.1 means only the tokens comprising the top 10% probability
-    /// mass are considered.
-    public let topP: Double?
-    
+
     /// A unique identifier representing your end-user, which can help OpenAI to monitor and detect abuse.
     public let user: String?
-    
-    /// Text generation settings.
-    public let text: TextSettings?
-    
+
     private enum CodingKeys: String, CodingKey {
         case input
         case model
@@ -84,6 +82,7 @@ public struct OpenAICreateResponseRequestBody: Encodable {
         case reasoning
         case parallelToolCalls = "parallel_tool_calls"
         case previousResponseId = "previous_response_id"
+        case prompt
         case truncation
         case stream
         case temperature
@@ -96,128 +95,81 @@ public struct OpenAICreateResponseRequestBody: Encodable {
     // To regenerate, use `cmd-shift-a` > Generate Memberwise Initializer
     // To format, place the cursor in the initializer's parameter list and use `ctrl-m`
     public init(
-        input: OpenAICreateResponseRequestBody.Input,
-        model: String,
-        tools: [OpenAICreateResponseRequestBody.Tool]? = nil,
-        toolChoice: OpenAICreateResponseRequestBody.ToolChoice? = nil,
-        reasoning: OpenAICreateResponseRequestBody.Reasoning? = nil,
+        input: OpenAIResponse.Input? = nil,
+        model: String? = nil,
         parallelToolCalls: Bool? = nil,
         previousResponseId: String? = nil,
-        truncation: Truncation? = nil,
+        prompt: OpenAICreateResponseRequestBody.Prompt? = nil,
+        reasoning: OpenAICreateResponseRequestBody.Reasoning? = nil,
         stream: Bool? = nil,
         temperature: Double? = nil,
+        text: OpenAIResponse.TextConfiguration? = nil,
+        toolChoice: OpenAICreateResponseRequestBody.ToolChoice? = nil,
+        tools: [OpenAICreateResponseRequestBody.Tool]? = nil,
         topP: Double? = nil,
-        user: String? = nil,
-        text: OpenAICreateResponseRequestBody.TextSettings? = nil
+        truncation: OpenAICreateResponseRequestBody.Truncation? = nil,
+        user: String? = nil
     ) {
         self.input = input
         self.model = model
-        self.tools = tools
-        self.toolChoice = toolChoice
-        self.reasoning = reasoning
         self.parallelToolCalls = parallelToolCalls
         self.previousResponseId = previousResponseId
-        self.truncation = truncation
+        self.prompt = prompt
+        self.reasoning = reasoning
         self.stream = stream
         self.temperature = temperature
-        self.topP = topP
-        self.user = user
         self.text = text
+        self.toolChoice = toolChoice
+        self.tools = tools
+        self.topP = topP
+        self.truncation = truncation
+        self.user = user
     }
+
+    // For naming consistency with sdkVersion <= 0.120.0
+    public typealias TextSettings = OpenAIResponse.TextConfiguration
 }
 
 extension OpenAICreateResponseRequestBody {
-    public enum Input: Encodable {
+
+    /// The truncation strategy to use for the model response.
+    public enum Truncation: String, Encodable {
+        /// If the context of this response and previous ones exceeds the model's context window size, the model will truncate the response to fit the context window by dropping input items in the middle of the conversation.
+        case auto
+
+        /// If a model response will exceed the context window size for a model, the request will fail with a 400 error.
+        case disabled
+    }
+
+    public struct Prompt: Encodable {
+        /// The unique identifier of the prompt template to use.
+        public let id: String
+
+        /// Optional map of values to substitute in for variables in your prompt. The substitution values can either be strings, or other Response input types like images or files.
+        public let variables: [String: Variable]?
+
+        /// Optional version of the prompt template.
+        public let version: String?
+
+        public init(
+            id: String,
+            variables: [String : OpenAICreateResponseRequestBody.Variable]? = nil,
+            version: String? = nil
+        ) {
+            self.id = id
+            self.variables = variables
+            self.version = version
+        }
+    }
+
+    public enum Variable: Encodable {
         case text(String)
-        case items([ItemOrMessage])
 
         public func encode(to encoder: any Encoder) throws {
             var container = encoder.singleValueContainer()
             switch self {
-            case .text(let txt):
-                try container.encode(txt)
-            case .items(let items):
-                try container.encode(items)
-            }
-        }
-    }
-
-    public enum ItemOrMessage: Encodable {
-        case message(role: Role, content: Content)
-
-        private struct _Message: Encodable {
-            let role: Role
-            let content: Content
-
-            private enum CodingKeys: CodingKey {
-                case content
-                case role
-                case type
-            }
-
-            func encode(to encoder: any Encoder) throws {
-                var container = encoder.container(keyedBy: CodingKeys.self)
-                try container.encode("message", forKey: .type)
-                try container.encode(self.role.rawValue, forKey: .role)
-                try container.encode(self.content, forKey: .content)
-            }
-        }
-
-        public func encode(to encoder: any Encoder) throws {
-            var container = encoder.singleValueContainer()
-            switch self {
-            case .message(role: let role, content: let content):
-                try container.encode(_Message(role: role, content: content))
-            }
-        }
-    }
-
-    public enum Role: String, Encodable {
-        case user
-        case assistant
-        case system
-        case developer
-    }
-
-    public enum Content: Encodable {
-        case text(String)
-        case list([ItemContent])
-
-        public func encode(to encoder: any Encoder) throws {
-            var container = encoder.singleValueContainer()
-            switch self {
-            case .text(let txt):
-                try container.encode(txt)
-            case .list(let itemContent):
-                try container.encode(itemContent)
-            }
-        }
-    }
-
-    public enum ItemContent: Encodable {
-        case file(fileID: String)
-        case imageURL(URL)
-        case text(String)
-
-        private enum CodingKeys: String, CodingKey {
-            case fileID = "file_id"
-            case imageURL = "image_url"
-            case type
-            case text
-        }
-
-        public func encode(to encoder: any Encoder) throws {
-            var container = encoder.container(keyedBy: CodingKeys.self)
-            switch self {
-            case .file(let fileID):
-                try container.encode(fileID, forKey: .fileID)
-                try container.encode("input_file", forKey: .type)
-            case .imageURL(let imageURL):
-                try container.encode(imageURL, forKey: .imageURL)
-                try container.encode("input_image", forKey: .type)
-            case .text(let txt):
-                try container.encode(txt, forKey: .text)
-                try container.encode("input_text", forKey: .type)
+            case .text(let str):
+                try container.encode(str)
             }
         }
     }
@@ -259,7 +211,7 @@ extension OpenAICreateResponseRequestBody {
             case strict
             case type
             case userLocation = "user_location"
-            case vectorStoreIds = "vector_store_ids"
+            case vectorStoreIDs = "vector_store_ids"
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -268,7 +220,7 @@ extension OpenAICreateResponseRequestBody {
             switch self {
             case .fileSearch(let tool):
                 try container.encode("file_search", forKey: .type)
-                try container.encode(tool.vectorStoreIds, forKey: .vectorStoreIds)
+                try container.encode(tool.vectorStoreIDs, forKey: .vectorStoreIDs)
                 try container.encodeIfPresent(tool.filters, forKey: .filters)
                 try container.encodeIfPresent(tool.maxNumResults, forKey: .maxNumResults)
                 try container.encodeIfPresent(tool.rankingOptions, forKey: .rankingOptions)
@@ -299,11 +251,11 @@ extension OpenAICreateResponseRequestBody {
 
             switch type {
             case "file_search":
-                let vectorStoreIds = try container.decode([String].self, forKey: .vectorStoreIds)
+                let vectorStoreIDs = try container.decode([String].self, forKey: .vectorStoreIDs)
                 let filters = try container.decodeIfPresent(FileSearchFilter.self, forKey: .filters)
                 let maxNumResults = try container.decodeIfPresent(Int.self, forKey: .maxNumResults)
                 let rankingOptions = try container.decodeIfPresent(FileSearchTool.RankingOptions.self, forKey: .rankingOptions)
-                self = .fileSearch(FileSearchTool(vectorStoreIds: vectorStoreIds, filters: filters, maxNumResults: maxNumResults, rankingOptions: rankingOptions))
+                self = .fileSearch(FileSearchTool(vectorStoreIDs: vectorStoreIDs, filters: filters, maxNumResults: maxNumResults, rankingOptions: rankingOptions))
 
             case "web_search_preview":
                 let searchContextSize = try container.decodeIfPresent(WebSearchTool.SearchContextSize.self, forKey: .searchContextSize)
@@ -335,34 +287,51 @@ extension OpenAICreateResponseRequestBody {
 
     // MARK: - File Search Tool
     public struct FileSearchTool: Codable {
+
+        // Required
+        /// The type of the file search tool. Always `file_search`.
+        public let type = "file_search"
+
+        /// The IDs of the vector stores to search.
+        public let vectorStoreIDs: [String]
+
+        // Optional
+        /// A filter to apply.
+        public let filters: FileSearchFilter?
+
+        /// The maximum number of results to return. This number should be between 1 and 50 inclusive.
+        public let maxNumResults: Int?
+
+        /// Ranking options for search.
+        /// If not specified, the file search tool will use the `auto` ranker and a `score_threshold` of 0.
+        public let rankingOptions: RankingOptions?
+
         private enum CodingKeys: String, CodingKey {
             case type
-            case vectorStoreIds = "vector_store_ids"
+            case vectorStoreIDs = "vector_store_ids"
             case filters
             case maxNumResults = "max_num_results"
             case rankingOptions = "ranking_options"
         }
 
-        public let type = "file_search"
-        public let vectorStoreIds: [String]
-        public let filters: FileSearchFilter?
-        public let maxNumResults: Int?
-        public let rankingOptions: RankingOptions?
-
         public init(
-            vectorStoreIds: [String],
+            vectorStoreIDs: [String],
             filters: FileSearchFilter? = nil,
             maxNumResults: Int? = nil,
             rankingOptions: RankingOptions? = nil
         ) {
-            self.vectorStoreIds = vectorStoreIds
+            self.vectorStoreIDs = vectorStoreIDs
             self.filters = filters
             self.maxNumResults = maxNumResults
             self.rankingOptions = rankingOptions
         }
 
         public struct RankingOptions: Codable {
+            /// The ranker to use for the file search.
             public let ranker: String?
+
+            /// The score threshold for the file search, a number between 0 and 1.
+            /// Numbers closer to 1 will attempt to return only the most relevant results, but may return fewer results.
             public let scoreThreshold: Double?
 
             private enum CodingKeys: String, CodingKey {
@@ -389,26 +358,50 @@ extension OpenAICreateResponseRequestBody {
             }
         }
 
+        /// A filter used to compare a specified attribute key to a given value using a defined comparison operation.
         public struct ComparisonFilter: Codable {
+            /// The key to compare against the value.
             public let key: String
-            public let type: String // eq, ne, gt, gte, lt, lte
+
+            /// Specifies the comparison operator: eq, ne, gt, gte, lt, lte
+            public let type: ComparisonOperator
+
+            /// The value to compare against the attribute key; supports string, number, or boolean types.
             public let value: AIProxyJSONValue
 
-            public init(key: String, type: String, value: AIProxyJSONValue) {
+            public init(key: String, type: ComparisonOperator, value: AIProxyJSONValue) {
                 self.key = key
                 self.type = type
                 self.value = value
             }
         }
 
-        public struct CompoundFilter: Codable {
-            public let filters: [FileSearchFilter]
-            public let type: String // and, or
+        public enum ComparisonOperator: String, Codable {
+            case eq
+            case ne
+            case gt
+            case gte
+            case lt
+            case lte
+        }
 
-            public init(filters: [FileSearchFilter], type: String) {
+        /// Combine multiple filters using `and` or `or`.
+        public struct CompoundFilter: Codable {
+            /// Array of filters to combine. Items can be `ComparisonFilter` or `CompoundFilter`.
+            public let filters: [FileSearchFilter]
+
+            /// Type of operation: `and` or `or`.
+            public let type: CompoundOperator
+
+            public init(filters: [FileSearchFilter], type: CompoundOperator) {
                 self.filters = filters
                 self.type = type
             }
+        }
+
+        public enum CompoundOperator: String, Codable {
+            case and
+            case or
         }
     }
 
@@ -493,19 +486,32 @@ extension OpenAICreateResponseRequestBody {
 
     // MARK: - Function Tool
     public struct FunctionTool: Codable {
+        // Required
+
+        /// The name of the function to call.
+        public let name: String
+
+        /// A JSON schema object describing the parameters of the function.
+        public let parameters: [String: AIProxyJSONValue]
+
+        /// Whether to enforce strict parameter validation. Default true.
+        public let strict: Bool
+
+        /// The type of the function tool. Always `function`
+        public let type = "function"
+
+        // Optional
+
+        /// A description of the function. Used by the model to determine whether or not to call the function.
+        public let description: String?
+
         private enum CodingKeys: String, CodingKey {
-            case type
+            case description
             case name
             case parameters
             case strict
-            case description
+            case type
         }
-
-        public let type = "function"
-        public let name: String
-        public let parameters: [String: AIProxyJSONValue]
-        public let strict: Bool
-        public let description: String?
 
         public init(
             name: String,
@@ -528,6 +534,7 @@ extension OpenAICreateResponseRequestBody {
         private enum CodingKeys: String, CodingKey {
             case effort
             case generateSummary = "generate_summary"
+            case summary
         }
 
         /// Constrains effort on reasoning for reasoning models.
@@ -535,17 +542,36 @@ extension OpenAICreateResponseRequestBody {
         /// Reducing reasoning effort can result in faster responses and fewer tokens used on reasoning in a response.
         public let effort: Effort?
 
-        /// computer_use_preview only
+        /// Deprecated!
         /// A summary of the reasoning performed by the model. This can be useful for debugging and
-        /// understanding the model's reasoning process. One of concise or detailed.
+        /// understanding the model's reasoning process. One of auto, concise, or detailed.
+        ///
+        /// I'm removing this deprecation notice, because it seems there is no way to avoid raising
+        /// The deprecation warning from within our own initializer.
+        /// We still have the runtime log in the initializer to communicate to developers that the field is deprecated.
+        /// @available(*, deprecated, message: "This has been renamed to 'summary' by OpenAI")
         public let generateSummary: SummaryType?
+
+        /// A summary of the reasoning performed by the model. This can be useful for debugging and
+        /// understanding the model's reasoning process. One of auto, concise, or detailed.
+        public let summary: SummaryType?
 
         public init(
             effort: Effort? = nil,
-            generateSummary: SummaryType? = nil
+            generateSummary: SummaryType? = nil,
+            summary: SummaryType? = nil
         ) {
             self.effort = effort
-            self.generateSummary = generateSummary
+            if let summary {
+                self.summary = summary
+            } else if generateSummary != nil {
+               logIf(.warning)?.warning("AIProxy: generateSummary has been renamed to summary by OpenAI, please update your call site.")
+               self.summary = generateSummary
+            } else {
+                self.summary = nil
+            }
+            
+            self.generateSummary = nil
         }
     }
 }
@@ -554,13 +580,15 @@ extension OpenAICreateResponseRequestBody {
 extension OpenAICreateResponseRequestBody.Reasoning {
     /// Supported effort levels for reasoning models
     public enum Effort: String, Encodable {
+        case minimal
         case low
         case medium
         case high
     }
 
-    /// Summary types for reasoning models with computer use preview
+    /// Summary types for reasoning models
     public enum SummaryType: String, Encodable {
+        case auto
         case concise
         case detailed
     }
@@ -628,54 +656,3 @@ extension OpenAICreateResponseRequestBody {
         }
     }
 }
-
-// MARK: - Text Settings
-extension OpenAICreateResponseRequestBody {
-    /// Text generation settings for the response
-    public struct TextSettings: Codable {
-        /// The format specification for the text output
-        public let format: Format?
-        
-        public init(format: Format? = nil) {
-            self.format = format
-        }
-    }
-    
-    /// Format specification for text output
-    public struct Format: Codable {
-        /// The format type
-        public let type: FormatType?
-        
-        /// The name of the schema (required for json_schema type)
-        public let name: String?
-        
-        /// The JSON schema definition (required for json_schema type)
-        public let schema: [String: AIProxyJSONValue]?
-        
-        /// Whether to enable strict schema adherence (optional for json_schema type)
-        public let strict: Bool?
-        
-        public init(
-            type: FormatType? = nil,
-            name: String? = nil,
-            schema: [String: AIProxyJSONValue]? = nil,
-            strict: Bool? = nil
-        ) {
-            self.type = type
-            self.name = name
-            self.schema = schema
-            self.strict = strict
-        }
-    }
-    
-    /// Available text output format types
-    public enum FormatType: String, Codable {
-        /// Plain text format
-        case text
-        /// JSON object format
-        case jsonObject = "json_object"
-        /// Structured JSON with schema validation
-        case jsonSchema = "json_schema"
-    }
-}
-

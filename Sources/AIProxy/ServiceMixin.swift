@@ -13,32 +13,57 @@ protocol ServiceMixin {
 
 extension ServiceMixin {
     func makeRequestAndDeserializeResponse<T: Decodable>(_ request: URLRequest) async throws -> T {
-        if AIProxy.printRequestBodies {
+        if AIProxyConfiguration.printRequestBodies {
             printRequestBody(request)
         }
         let (data, _) = try await BackgroundNetworker.makeRequestAndWaitForData(
             self.urlSession,
             request
         )
-        if AIProxy.printResponseBodies {
+        if AIProxyConfiguration.printResponseBodies {
             printBufferedResponseBody(data)
         }
         return try T.deserialize(from: data)
     }
 
-    func makeRequestAndDeserializeStreamingChunks<T: Decodable>(_ request: URLRequest) async throws -> AsyncCompactMapSequence<AsyncLineSequence<URLSession.AsyncBytes>, T> {
-        if AIProxy.printRequestBodies {
+    func makeRequestAndDeserializeStreamingChunks<T: Decodable>(_ request: URLRequest) async throws -> AsyncThrowingStream<T, Error> {
+        if AIProxyConfiguration.printRequestBodies {
             printRequestBody(request)
         }
+
         let (asyncBytes, _) = try await BackgroundNetworker.makeRequestAndWaitForAsyncBytes(
             self.urlSession,
             request
         )
-        return asyncBytes.lines.compactMap {
-            if AIProxy.printResponseBodies {
-                printStreamingResponseChunk($0)
+
+        let sequence = asyncBytes.lines.compactMap { (line: String) -> T? in
+            if AIProxyConfiguration.printResponseBodies {
+                printStreamingResponseChunk(line)
             }
-            return T.deserialize(fromLine: $0)
+            return T.deserialize(fromLine: line)
+        }
+
+        // This swift juggling is because I don't want the return types of our API to be
+        // something like: AsyncCompactMapSequence<AsyncLineSequence<URLSession.AsyncBytes>, OpenAIChatCompletionChunk>
+        //
+        // So instead I manually map it to an AsyncStream with a nice signature of AsyncThrowingStream<OpenAIChatCompletionChunk, Error>.
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    for try await item in sequence {
+                        if Task.isCancelled {
+                            break
+                        }
+                        continuation.yield(item)
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in
+                task.cancel()
+            }
         }
     }
 }
