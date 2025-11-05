@@ -30,7 +30,14 @@ nonisolated public struct PerplexityChatCompletionResponseBody: Decodable, Senda
     /// Usage statistics for the completion request.
     public let usage: Usage?
     
-    public init(choices: [Choice], citations: [String]?, created: Int?, id: String?, model: String?, object: String?, usage: Usage?) {
+    public let searchResults: [SearchResult]?
+    
+    private enum CodingKeys: String, CodingKey {
+        case choices, citations, created, id, model, object, usage
+        case searchResults = "search_results"
+    }
+    
+    public init(choices: [Choice], citations: [String]?, created: Int?, id: String?, model: String?, object: String?, usage: Usage?, searchResults: [SearchResult]?) {
         self.choices = choices
         self.citations = citations
         self.created = created
@@ -38,6 +45,7 @@ nonisolated public struct PerplexityChatCompletionResponseBody: Decodable, Senda
         self.model = model
         self.object = object
         self.usage = usage
+        self.searchResults = searchResults
     }
 }
 
@@ -122,17 +130,55 @@ extension PerplexityChatCompletionResponseBody {
 
         /// The total number of tokens used in the chat completion (prompt + completion).
         public let totalTokens: Int?
+        
+        public let searchContextSize: String?
+        public let citationTokens: Int?
+        public let numSearchQueries: Int?
+        public let reasoningTokens: Int?
 
         private enum CodingKeys: String, CodingKey {
             case promptTokens = "prompt_tokens"
             case completionTokens = "completion_tokens"
             case totalTokens = "total_tokens"
+            case searchContextSize = "search_context_size"
+            case citationTokens = "citation_tokens"
+            case numSearchQueries = "num_search_queries"
+            case reasoningTokens = "reasoning_tokens"
         }
         
-        public init(promptTokens: Int?, completionTokens: Int?, totalTokens: Int?) {
+        public init(promptTokens: Int?, completionTokens: Int?, totalTokens: Int?, searchContextSize: String?, citationTokens: Int?, numSearchQueries: Int?, reasoningTokens: Int?) {
             self.promptTokens = promptTokens
             self.completionTokens = completionTokens
             self.totalTokens = totalTokens
+            self.searchContextSize = searchContextSize
+            self.citationTokens = citationTokens
+            self.numSearchQueries = numSearchQueries
+            self.reasoningTokens = reasoningTokens
+        }
+    }
+}
+
+// MARK: - ResponseBody.SearchResult
+extension PerplexityChatCompletionResponseBody {
+    public struct SearchResult: Codable, Hashable, Sendable {
+        public let title: String
+        public let url: String
+        public let date: String?
+        public let lastUpdated: String?
+        public let snippet: String?
+
+        private enum CodingKeys: String, CodingKey {
+            case title, url, date
+            case lastUpdated = "last_updated"
+            case snippet
+        }
+
+        public init(title: String, url: String, date: String?, lastUpdated: String, snippet: String) {
+            self.title = title
+            self.url = url
+            self.date = date
+            self.lastUpdated = lastUpdated
+            self.snippet = snippet
         }
     }
 }

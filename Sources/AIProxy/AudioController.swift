@@ -35,6 +35,7 @@ import AVFoundation
         case playback
     }
     public let modes: [Mode]
+    public var outputRMS: ((Float) -> Void)?
     private let audioEngine: AVAudioEngine
     private var microphonePCMSampleVendor: MicrophonePCMSampleVendor? = nil
     private var audioPCMPlayer: AudioPCMPlayer? = nil
@@ -73,6 +74,9 @@ import AVFoundation
 
         if modes.contains(.playback) {
             self.audioPCMPlayer = try await AudioPCMPlayer(audioEngine: self.audioEngine)
+            self.audioPCMPlayer?.currentRMS = { [weak self] rms in
+                self?.outputRMS?(rms)
+            }
         }
 
         self.audioEngine.prepare()
