@@ -396,6 +396,7 @@ extension GeminiGenerateContentRequestBody {
         public let responseSchema: [String: AIProxyJSONValue]?
         public let speechConfig: SpeechConfig?
         public let thinkingConfig: ThinkingConfig?
+        public let imageConfig: ImageConfig?
 
         public init(
             maxOutputTokens: Int? = nil,
@@ -408,7 +409,8 @@ extension GeminiGenerateContentRequestBody {
             responseMimeType: String? = nil,
             responseSchema: [String: AIProxyJSONValue]? = nil,
             speechConfig: SpeechConfig? = nil,
-            thinkingConfig: ThinkingConfig? = nil
+            thinkingConfig: ThinkingConfig? = nil,
+            imageConfig: ImageConfig? = nil
         ) {
             self.maxOutputTokens = maxOutputTokens
             self.temperature = temperature
@@ -421,6 +423,7 @@ extension GeminiGenerateContentRequestBody {
             self.responseSchema = responseSchema
             self.speechConfig = speechConfig
             self.thinkingConfig = thinkingConfig
+            self.imageConfig = imageConfig
         }
 
         private enum CodingKeys: String, CodingKey {
@@ -435,6 +438,7 @@ extension GeminiGenerateContentRequestBody {
             case responseSchema
             case speechConfig
             case thinkingConfig
+            case imageConfig
         }
     }
 }
@@ -458,6 +462,14 @@ extension GeminiGenerateContentRequestBody.GenerationConfig {
         ) {
             self.multiSpeakerVoiceConfig = multiSpeakerVoiceConfig
             self.voiceConfig = voiceConfig
+        }
+    }
+    
+    nonisolated public struct ImageConfig: Encodable, Sendable {
+        public let aspectRatio: String?
+
+        public init(aspectRatio: String? = nil) {
+            self.aspectRatio = aspectRatio
         }
     }
 }
