@@ -66,7 +66,7 @@ import Accelerate
     }
 
     deinit {
-        logIf(.debug)?.debug("AudioPCMPlayer is being freed")
+        logIf(.debug)?.debug("AIProxy: AudioPCMPlayer is being freed")
     }
 
     public func playPCM16Audio(from base64String: String) {
@@ -74,6 +74,15 @@ import Accelerate
             logIf(.error)?.error("Could not decode base64 string for audio playback")
             return
         }
+        playPCM16Audio(data: audioData)
+    }
+
+    public func playPCM16Audio(data audioData: Data) {
+        logIf(.debug)?.debug("AIProxy: playing \(audioData.count / 2) samples of PCM16 data")
+
+#if false
+        writeRawAudioToFile(audioData, location: "inputRaw.txt")
+#endif
 
         var bufferList = AudioBufferList(
             mNumberBuffers: 1,
@@ -94,6 +103,10 @@ import Accelerate
             return
         }
 
+#if false
+        writePCM16IntValuesToFile(from: inPCMBuf, location: "input.txt")
+#endif
+
         guard let outPCMBuf = AVAudioPCMBuffer(
             pcmFormat: self.playableFormat,
             frameCapacity: AVAudioFrameCount(UInt32(audioData.count) * 2)
@@ -113,6 +126,10 @@ import Accelerate
             logIf(.error)?.error("Could not map from pcm16int to pcm32float: \(error.localizedDescription)")
             return
         }
+
+#if false
+        writePCM16IntValuesToFile(from: outPCMBuf, location: "output.txt")
+#endif
 
         if self.audioEngine.isRunning {
             // #if os(macOS)

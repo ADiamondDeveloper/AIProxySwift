@@ -385,6 +385,7 @@ extension GeminiGenerateContentRequestBody {
 extension GeminiGenerateContentRequestBody {
     /// Configuration options for model generation and outputs.
     nonisolated public struct GenerationConfig: Encodable, Sendable {
+        public let imageConfig: ImageConfig?
         public let maxOutputTokens: Int?
         public let temperature: Double?
         public let topP: Double?
@@ -396,9 +397,9 @@ extension GeminiGenerateContentRequestBody {
         public let responseSchema: [String: AIProxyJSONValue]?
         public let speechConfig: SpeechConfig?
         public let thinkingConfig: ThinkingConfig?
-        public let imageConfig: ImageConfig?
 
         public init(
+            imageConfig: ImageConfig? = nil,
             maxOutputTokens: Int? = nil,
             temperature: Double? = nil,
             topP: Double? = nil,
@@ -410,8 +411,8 @@ extension GeminiGenerateContentRequestBody {
             responseSchema: [String: AIProxyJSONValue]? = nil,
             speechConfig: SpeechConfig? = nil,
             thinkingConfig: ThinkingConfig? = nil,
-            imageConfig: ImageConfig? = nil
         ) {
+            self.imageConfig = imageConfig
             self.maxOutputTokens = maxOutputTokens
             self.temperature = temperature
             self.topP = topP
@@ -423,10 +424,10 @@ extension GeminiGenerateContentRequestBody {
             self.responseSchema = responseSchema
             self.speechConfig = speechConfig
             self.thinkingConfig = thinkingConfig
-            self.imageConfig = imageConfig
         }
 
         private enum CodingKeys: String, CodingKey {
+            case imageConfig
             case maxOutputTokens
             case temperature
             case topP
@@ -438,12 +439,30 @@ extension GeminiGenerateContentRequestBody {
             case responseSchema
             case speechConfig
             case thinkingConfig
-            case imageConfig
         }
     }
 }
 
 extension GeminiGenerateContentRequestBody.GenerationConfig {
+    /// Config for image generation features.
+    /// https://ai.google.dev/api/generate-content#ImageConfig
+    nonisolated public struct ImageConfig: Encodable, Sendable {
+        /// The aspect ratio of the image to generate.
+        /// If not specified, the model will choose a default aspect ratio based on any reference images provided.
+        /// See the available sizes for each gemini image model here: https://ai.google.dev/gemini-api/docs/image-generation
+        public let aspectRatio: String?
+
+        /// Specifies the size of generated images.
+        /// If not specified, the model will use default value 1K.
+        /// See the available sizes for each gemini image model here: https://ai.google.dev/gemini-api/docs/image-generation
+        public let imageSize: String?
+
+        public init(aspectRatio: String? = nil, imageSize: String? = nil) {
+            self.aspectRatio = aspectRatio
+            self.imageSize = imageSize
+        }
+    }
+
     nonisolated public struct ThinkingConfig: Encodable, Sendable {
         public let thinkingBudget: Int
 
@@ -462,14 +481,6 @@ extension GeminiGenerateContentRequestBody.GenerationConfig {
         ) {
             self.multiSpeakerVoiceConfig = multiSpeakerVoiceConfig
             self.voiceConfig = voiceConfig
-        }
-    }
-    
-    nonisolated public struct ImageConfig: Encodable, Sendable {
-        public let aspectRatio: String?
-
-        public init(aspectRatio: String? = nil) {
-            self.aspectRatio = aspectRatio
         }
     }
 }
