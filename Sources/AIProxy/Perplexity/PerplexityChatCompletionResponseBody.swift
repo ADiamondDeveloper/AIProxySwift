@@ -32,12 +32,14 @@ nonisolated public struct PerplexityChatCompletionResponseBody: Decodable, Senda
     
     public let searchResults: [SearchResult]?
     
+    public let images: [ImageResult]?
+    
     private enum CodingKeys: String, CodingKey {
-        case choices, citations, created, id, model, object, usage
+        case choices, citations, created, id, model, object, usage, images
         case searchResults = "search_results"
     }
     
-    public init(choices: [Choice], citations: [String]?, created: Int?, id: String?, model: String?, object: String?, usage: Usage?, searchResults: [SearchResult]?) {
+    public init(choices: [Choice], citations: [String]?, created: Int?, id: String?, model: String?, object: String?, usage: Usage?, searchResults: [SearchResult]?, images: [ImageResult]?) {
         self.choices = choices
         self.citations = citations
         self.created = created
@@ -46,6 +48,7 @@ nonisolated public struct PerplexityChatCompletionResponseBody: Decodable, Senda
         self.object = object
         self.usage = usage
         self.searchResults = searchResults
+        self.images = images
     }
 }
 
@@ -179,6 +182,30 @@ extension PerplexityChatCompletionResponseBody {
             self.date = date
             self.lastUpdated = lastUpdated
             self.snippet = snippet
+        }
+    }
+    
+    public struct ImageResult: Codable, Hashable, Sendable {
+        public let imageURL: String?
+        public let originURL: String?
+        public let height: Int?
+        public let width: Int?
+        public let title: String?
+        
+        private enum CodingKeys: String, CodingKey {
+            case imageURL = "image_url"
+            case originURL = "origin_url"
+            case height
+            case width
+            case title
+        }
+        
+        public init(imageURL: String?, originURL: String?, height: Int?, width: Int?, title: String?) {
+            self.imageURL = imageURL
+            self.originURL = originURL
+            self.height = height
+            self.width = width
+            self.title = title
         }
     }
 }
