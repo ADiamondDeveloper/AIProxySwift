@@ -98,6 +98,9 @@ extension GeminiGenerateContentRequestBody.Content {
         /// Inline media bytes.
         case inline(data: Data, mimeType: String)
 
+        /// Inline media bytes with a thought signature (for replaying model turns).
+        case inlineWithSignature(data: Data, mimeType: String, thoughtSignature: String)
+
         /// URI based data.
         case file(url: URL, mimeType: String)
 
@@ -105,6 +108,7 @@ extension GeminiGenerateContentRequestBody.Content {
             case text
             case inlineData
             case fileData
+            case thoughtSignature
         }
 
         private enum InlineDataNestedKeys: String, CodingKey {
@@ -129,6 +133,14 @@ extension GeminiGenerateContentRequestBody.Content {
                 )
                 try nestedContainer.encode(data.base64EncodedString(), forKey: .data)
                 try nestedContainer.encode(mimeType, forKey: .mimeType)
+            case .inlineWithSignature(data: let data, mimeType: let mimeType, thoughtSignature: let sig):
+                var nestedContainer = container.nestedContainer(
+                    keyedBy: InlineDataNestedKeys.self,
+                    forKey: .inlineData
+                )
+                try nestedContainer.encode(data.base64EncodedString(), forKey: .data)
+                try nestedContainer.encode(mimeType, forKey: .mimeType)
+                try container.encode(sig, forKey: .thoughtSignature)
             case .file(url: let url, mimeType: let mimeType):
                 var nestedContainer = container.nestedContainer(
                     keyedBy: FileDataNestedKeys.self,

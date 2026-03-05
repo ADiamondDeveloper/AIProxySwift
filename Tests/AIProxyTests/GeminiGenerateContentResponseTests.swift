@@ -54,7 +54,7 @@ final class GeminiGenerateContentResponseBodyTests: XCTestCase {
         }
         """#
         let body = try GeminiGenerateContentResponseBody.deserialize(from: sampleResponse)
-        if case .text(let generated) = body.candidates?.first?.content?.parts?.first {
+        if case .text(let generated, _) = body.candidates?.first?.content?.parts?.first {
             XCTAssertEqual(generated, "findme")
         } else {
             XCTFail()

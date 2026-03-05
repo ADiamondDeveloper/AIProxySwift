@@ -81,20 +81,21 @@ extension GeminiGenerateContentResponseBody.Candidate.Content {
     /// This field is a union type, but currently only `text` is supported.
     /// See: https://ai.google.dev/api/caching#Part
     nonisolated public enum Part: Decodable, Sendable {
-        case text(String)
-        case functionCall(name: String, args: [String: any Sendable]?)
-        case inlineData(mimeType: String, base64Data: String)
+        case text(String, thoughtSignature: String? = nil)
+        case functionCall(name: String, args: [String: any Sendable]?, thoughtSignature: String? = nil)
+        case inlineData(mimeType: String, base64Data: String, thoughtSignature: String? = nil)
 
         private enum CodingKeys: String, CodingKey {
             case text
             case functionCall
             case inlineData
+            case thoughtSignature
         }
 
         private struct _FunctionCall: Decodable, Sendable {
             let name: String
             let args: [String: AIProxyJSONValue]?
-            
+
             public init(name: String, args: [String : AIProxyJSONValue]?) {
                 self.name = name
                 self.args = args
@@ -104,7 +105,7 @@ extension GeminiGenerateContentResponseBody.Candidate.Content {
         private struct _InlineData: Decodable, Sendable {
             let mimeType: String
             let data: String
-            
+
             public init(mimeType: String, data: String) {
                 self.mimeType = mimeType
                 self.data = data
@@ -113,15 +114,16 @@ extension GeminiGenerateContentResponseBody.Candidate.Content {
 
         public init(from decoder: any Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
+            let thoughtSignature = try container.decodeIfPresent(String.self, forKey: .thoughtSignature)
             if let functionCall = try container.decodeIfPresent(_FunctionCall.self, forKey: .functionCall) {
-                self = .functionCall(name: functionCall.name, args: functionCall.args?.untypedDictionary)
+                self = .functionCall(name: functionCall.name, args: functionCall.args?.untypedDictionary, thoughtSignature: thoughtSignature)
             } else if let inlineData = try container.decodeIfPresent(_InlineData.self, forKey: .inlineData) {
-                self = .inlineData(mimeType: inlineData.mimeType, base64Data: inlineData.data)
+                self = .inlineData(mimeType: inlineData.mimeType, base64Data: inlineData.data, thoughtSignature: thoughtSignature)
             } else {
-                self = .text(try container.decode(String.self, forKey: .text))
+                self = .text(try container.decode(String.self, forKey: .text), thoughtSignature: thoughtSignature)
             }
         }
-        
+
     }
 }
 

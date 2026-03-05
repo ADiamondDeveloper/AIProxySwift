@@ -460,7 +460,7 @@ final class GeminiGroundingResponseTests: XCTestCase {
         }
         """#
         let body = try GeminiGenerateContentResponseBody.deserialize(from: sampleResponse)
-        guard case .text(let txtContent) = body.candidates?.first?.content?.parts?.first else {
+        guard case .text(let txtContent, _) = body.candidates?.first?.content?.parts?.first else {
             return XCTFail()
         }
 

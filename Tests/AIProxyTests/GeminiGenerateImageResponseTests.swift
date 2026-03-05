@@ -47,7 +47,7 @@ final class GeminiGenerateImageResponseTests: XCTestCase {
         """#
 
         let body = try GeminiGenerateContentResponseBody.deserialize(from: sampleResponse)
-        if case .inlineData(mimeType: let mimeType, base64Data: let b64Data) = body.candidates?.first?.content?.parts?.first {
+        if case .inlineData(mimeType: let mimeType, base64Data: let b64Data, _) = body.candidates?.first?.content?.parts?.first {
             XCTAssertEqual("image/png", mimeType)
             XCTAssertEqual("<snip>", b64Data)
         } else {
