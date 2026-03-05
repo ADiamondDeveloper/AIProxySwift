@@ -39,8 +39,7 @@ key secure and your AI bill predictable:
 
 # Installation
 
-
-## How to add this package as a dependency to your Xcode project
+## Installation using Xcode
 
 1. From within your Xcode project, select `File > Add Package Dependencies`
 
@@ -51,53 +50,81 @@ key secure and your AI bill predictable:
 
    <img src="https://github.com/lzell/AIProxySwift/assets/35940/fd76b588-5e19-4d4d-9748-8db3fd64df8e" alt="Set package rule" width="720">
 
-3. Call `AIProxy.configure` during app launch. In a SwiftUI app, you can add an `init` to your `MyApp.swift` file: 
 
-    ```swift
-    import AIProxy
+## Installation using cocoapods
 
-    @main
-    struct MyApp: App {
-        init() {
-            AIProxy.configure(
-                logLevel: .debug,
-                printRequestBodies: false,  // Flip to true for library development
-                printResponseBodies: false, // Flip to true for library development
-                resolveDNSOverTLS: true,
-                useStableID: false,         // Please see the docstring if you'd like to enable this
-            )
-        }
-        // ...
+Add to your podfile:
+
+    pod "AIProxy"
+
+Then, from shell:
+
+    pod install
+
+## How to configure the package for use with AIProxy
+
+We recommend using the AIProxy option `useStableID` to rate limit usage across an app store user's account on multiple devices.
+To enable this, please first add support for iCloud's key-value storage:
+
+1. Tap on your project in Xcode's project tree
+2. Select your target in the secondary sidebar
+3. Tap on Signing & Capabilities > Add Capability > iCloud
+4. Check the 'Key-Value storage' checkbox
+
+During your app's launch, call `AIProxy.configure`. Using this method, you can specify:
+
+- the log level that you'd like to see in your Xcode console from the AIProxy lib
+- whether to print request/response bodies to Xcode's console, which is useful for debugging or contributing to the library
+- whether to resolve DNS queries [using Cloudflare's DoT](https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-tls/) (recommended)
+- whether to use stable identifiers as client IDs (recommended)
+
+In a SwiftUI app, call `AIProxy.configure` in your app's composition root:
+
+```swift
+import AIProxy
+
+@main
+struct MyApp: App {
+    init() {
+        AIProxy.configure(
+            logLevel: .debug,
+            printRequestBodies: false,
+            printResponseBodies: false,
+            resolveDNSOverTLS: true,
+            useStableID: true
+        )
     }
-    ```
+    // ...
+}
+```
 
-   In a UIKit app, add `configure` to applicationDidFinishLaunching:
+In a UIKit app, call `AIProxy.configure` in applicationDidFinishLaunching:
 
-    ```swift
-    import AIProxy
+```swift
+import AIProxy
 
-    @UIApplicationMain
-    class AppDelegate: UIResponder, UIApplicationDelegate {
+@UIApplicationMain
+class AppDelegate: UIResponder, UIApplicationDelegate {
 
-        var window: UIWindow?
+    var window: UIWindow?
 
-        func application(_ application: UIApplication,
-                         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-            AIProxy.configure(
-                logLevel: .debug,
-                printRequestBodies: false,  // Flip to true for library development
-                printResponseBodies: false, // Flip to true for library development
-                resolveDNSOverTLS: true,
-                useStableID: true
-            )
-            // ...
-            return true
-        }
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        AIProxy.configure(
+            logLevel: .debug,
+            printRequestBodies: false,
+            printResponseBodies: false,
+            resolveDNSOverTLS: true,
+            useStableID: true
+        )
         // ...
+        return true
     }
-    ```
+    // ...
+}
+```
 
-### How to configure the package for use with AIProxy
+## How to configure the AIProxy backend for use with your project
 
 See the [AIProxy integration video](https://www.aiproxy.com/docs/integration-guide.html).
 Note that this is not required if you are shipping an app where the customers provide their own
@@ -107,9 +134,9 @@ If you are shipping an app using a personal or company API key, we highly recomm
 AIProxy as an alternative to building, monitoring, and maintaining your own backend.
 
 
-## How to update the package
+# How to update the package
 
-- If you set the dependency rule to `main` in step 2 above, then you can ensure the package is
+- If you set the dependency rule to `main` during installation, then you can ensure the package is
   up to date by right clicking on the package and selecting 'Update Package'
 
   <img src="https://github.com/lzell/AIProxySwift/assets/35940/aeee0ab2-362b-4995-b9ca-ff4e1dd04f47" alt="Update package version" width="720">
@@ -125,7 +152,7 @@ AIProxy as an alternative to building, monitoring, and maintaining your own back
   tree and select 'Update Package'.
 
 
-## How to contribute to the package
+# How to contribute to the package
 
 Your additions to AIProxySwift are welcome! I like to develop the library while working in an
 app that depends on it:
@@ -141,9 +168,6 @@ If you do that, then you can modify the source to AIProxySwift right from within
 Once you're happy with your changes, open a PR here.
 
 # Example usage
-
-Along with the snippets below, which you can copy and paste into your Xcode project, we also
-offer full demo apps to jump-start your development. Please see the [AIProxyBootstrap](https://github.com/lzell/AIProxyBootstrap) repo.
 
 * [OpenAI](#openai)
 * [Gemini](#gemini)
@@ -1264,6 +1288,8 @@ This example it taken from OpenAI's [function calling guide](https://platform.op
 
 Use this example to have a conversation with OpenAI's realtime models.
 
+If you're building for iOS, see the [OpenAI realtime starter](https://github.com/lzell/OpenAIRealtimeSample) project for a jumping off point.
+
 We recommend getting a basic chat completion with OpenAI working before attempting realtime.
 Realtime is a more involved integration (as you can see from the code snippet below), and
 getting a basic integration working first narrows down the source of any problem.
@@ -1366,7 +1392,7 @@ final class RealtimeManager {
         )
 
         let realtimeSession = try await openAIService.realtimeSession(
-            model: "gpt-4o-mini-realtime-preview-2024-12-17",
+            model: "gpt-realtime-1.5",
             configuration: configuration,
             logLevel: .debug
         )
@@ -2233,6 +2259,275 @@ You can use all of the OpenAI snippets aboves with one change. Initialize the Op
 
 ***
 
+## OpenAI Conversations API
+
+### How to create an OpenAI conversation
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openAIService = AIProxy.openAIDirectService(
+    //     unprotectedAPIKey: "your-openai-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openAIService = AIProxy.openAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    let requestBody = OpenAICreateConversationRequestBody(
+        items: [
+            .item(
+                .inputMessage(OpenAIInputMessage(content: "Hello world", role: .user))
+            )
+        ],
+        metadata: ["topic": "demo"]
+    )
+
+    do {
+         let response = try await openAIService.createConversation(
+             requestBody: requestBody,
+             secondsToWait: 120
+         )
+        print("Created conversation with ID: \(response.id)")
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received \(statusCode) status code with response body: \(responseBody)")
+    } catch {
+        print("Could not create OpenAI Conversation: \(error)")
+    }
+```
+
+### How to get an OpenAI conversation
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openAIService = AIProxy.openAIDirectService(
+    //     unprotectedAPIKey: "your-openai-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openAIService = AIProxy.openAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    do {
+        let response = try await openAIService.getConversation(
+            conversationID: "<conversation-id>",
+            secondsToWait: 120
+        )
+        print("Retreived conversation with ID \(response.id) and metadata: \(response.metadata)")
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received \(statusCode) status code with response body: \(responseBody)")
+    } catch {
+        print("Could not get OpenAI Conversation: \(error)")
+    }
+```
+
+### How to list OpenAI conversation items
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openAIService = AIProxy.openAIDirectService(
+    //     unprotectedAPIKey: "your-openai-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openAIService = AIProxy.openAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    do {
+        let response = try await openAIService.listItems(
+            conversationID: "<conversation-id>",
+            include: [.messageOutputTextLogprobs],
+            secondsToWait: 120
+        )
+        print("Retreived conversation with ID \(response.data)")
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received \(statusCode) status code with response body: \(responseBody)")
+    } catch {
+        print("Could not list OpenAI conversation items: \(error)")
+    }
+```
+
+### How to add items to an OpenAI conversation
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openAIService = AIProxy.openAIDirectService(
+    //     unprotectedAPIKey: "your-openai-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openAIService = AIProxy.openAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    let createConversationBody = OpenAICreateConversationRequestBody(
+        metadata: ["purpose": "item_creation_test"]
+    )
+
+    do {
+        let conversation = try await openAIService.createConversation(
+            requestBody: createConversationBody,
+            secondsToWait: 120
+        )
+        print("Created conversation: \(conversation.id)")
+
+        let createItemsBody = OpenAICreateConversationItemsRequestBody(
+            items: [
+                .item(
+                    .inputMessage(OpenAIInputMessage(content: "What is the capital of France?", role: .user))
+                )
+            ]
+        )
+
+        let response = try await openAIService.createItems(
+            conversationID: conversation.id,
+            requestBody: createItemsBody,
+            secondsToWait: 120
+        )
+        print("Created \(response.data.count) items in conversation")
+        print("First item ID: \(response.firstID)")
+        print("Last item ID: \(response.lastID)")
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received \(statusCode) status code with response body: \(responseBody)")
+    } catch {
+        print("Could not create conversation items: \(error)")
+    }
+```
+
+### How to delete an item from an OpenAI conversation
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openAIService = AIProxy.openAIDirectService(
+    //     unprotectedAPIKey: "your-openai-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openAIService = AIProxy.openAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    do {
+        let result = try await openAIService.deleteItem(
+            conversationID: <conversation-id>,
+            itemID: <item-id>,
+            secondsToWait: 120
+        )
+        print("Deleted conversation item with id: \(result.id)")
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received \(statusCode) status code with response body: \(responseBody)")
+    } catch {
+        print("Could not delete conversation item: \(error)")
+    }
+```
+
+### How to delete an OpenAI conversation
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openAIService = AIProxy.openAIDirectService(
+    //     unprotectedAPIKey: "your-openai-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openAIService = AIProxy.openAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    do {
+        let response = try await openAIService.deleteConversation(
+            conversationID: "<conversation-id>",
+            secondsToWait: 120
+        )
+        print("Conversation with ID \(response.id) has been deleted: \(response.deleted)")
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received \(statusCode) status code with response body: \(responseBody)")
+    } catch {
+        print("Could not delete OpenAI Conversation: \(error)")
+    }
+```
+
+### How to list OpenAI conversation items with pagination
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openAIService = AIProxy.openAIDirectService(
+    //     unprotectedAPIKey: "your-openai-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openAIService = AIProxy.openAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    let createConversationBody = OpenAICreateConversationRequestBody(
+        items: [
+            .item(.inputMessage(OpenAIInputMessage(content: "Page 1 - Item 1", role: .user))),
+            .item(.inputMessage(OpenAIInputMessage(content: "Page 1 - Item 2", role: .user))),
+            .item(.inputMessage(OpenAIInputMessage(content: "Page 2 - Item 1", role: .user))),
+            .item(.inputMessage(OpenAIInputMessage(content: "Page 2 - Item 2", role: .user)))
+        ],
+        metadata: ["purpose": "pagination_test"]
+    )
+
+    do {
+        let conversation = try await openAIService.createConversation(
+            requestBody: createConversationBody,
+            secondsToWait: 120
+        )
+        print("Created conversation: \(conversation.id)")
+
+        let page1 = try await openAIService.listItems(
+            conversationID: conversation.id,
+            limit: 2,
+            order: .asc,
+            secondsToWait: 120
+        )
+        print("Page 1: \(page1.data.count) items")
+        print("Has more: \(page1.hasMore)")
+
+        if page1.hasMore {
+            let page2 = try await openAIService.listItems(
+                conversationID: conversation.id,
+                after: page1.lastID,
+                limit: 2,
+                order: .asc,
+                secondsToWait: 120
+            )
+            print("Page 2: \(page2.data.count) items")
+            print("Has more: \(page2.hasMore)")
+        }
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received \(statusCode) status code with response body: \(responseBody)")
+    } catch {
+        print("Could not paginate conversation items: \(error)")
+    }
+```
+
+***
 
 ## Gemini
 
@@ -4882,7 +5177,17 @@ model owner and model name in the string.
 
 - See the full range of TTS controls by viewing `ElevenLabsTTSRequestBody.swift`.
 - See https://api.elevenlabs.io/v1/voices for the IDs that you can pass to `voiceID`.
+- To get timing information of the spoken text, use `elevenLabsService.ttsRequestWithTimestamps`:
 
+```swift
+let res = try await elevenLabsService.ttsRequestWithTimestamps(
+    voiceID: "EXAVITQu4vr4xnSDxMaL",
+    body: body,
+    secondsToWait: 120
+)
+// Timing information is available as `res.alignment` and `res.normalizedAlignment`
+// Audio to pass to the AVAudioPlayer is available as `res.audioData`
+```
 
 ### How to use ElevenLabs for streaming text-to-speech
 
@@ -4936,6 +5241,20 @@ model owner and model name in the string.
 
 - See the full range of TTS controls by viewing `ElevenLabsTTSRequestBody.swift`.
 - See https://api.elevenlabs.io/v1/voices for the IDs that you can pass to `voiceID`.
+- To get timing information of the spoken text, use `elevenLabsService.streamingTTSWithTimestampsRequest`:
+
+```swift
+let stream = try await elevenLabsService.streamingTTSWithTimestampsRequest(
+    voiceID: "EXAVITQu4vr4xnSDxMaL",
+    body: body,
+    secondsToWait: 120
+)
+
+for try await chunk in stream {
+    // Timing information is available as `chunk.alignment` and `chunk.normalizedAlignment`
+    // Audio to pass to the AVAudioPlayer is available as `chunk.audioData`
+}
+```
 
 ### How to use ElevenLabs for speech-to-speech
 
@@ -5266,6 +5585,42 @@ See `FalFluxLoRAInputSchema.swift` for the full range of inference controls
         print("Received non-200 status code: \(statusCode) with response body: \(responseBody)")
     } catch {
         print("Could not create Flux Kontext Pro image: \(error)")
+    }
+```
+
+#### How to generate an image using Flux 2
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let falService = AIProxy.falDirectService(
+    //     unprotectedAPIKey: "your-fal-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let falService = AIProxy.falService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    let input = FalFlux2InputSchema(
+        prompt: "Yosemite Valley",
+        enableSafetyChecker: false
+    )
+    do {
+        let output = try await falService.createFlux2Image(
+            input: input,
+            secondsToWait: 120
+        )
+        print("""
+              The first output image is at \(output.images?.first?.url?.absoluteString ?? "")
+              It took \(output.timings?.inference ?? Double.nan) seconds to generate.
+              """)
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received non-200 status code: \(statusCode) with response body: \(responseBody)")
+    } catch {
+        print("Could not create Fal Flux 2 image: \(error)")
     }
 ```
 
@@ -6962,7 +7317,9 @@ Contributions are welcome! This library uses the MIT license.
 
 - In codable representations, fields that are required by the API should be above fields that
   are optional. Within the two groups (required and optional) all fields should be
-  alphabetically ordered. Separate the two groups with a mark to aid users of ctrl-6:
+  in the provider's documentation order. This makes it easier for contributors and LLMs
+  to spot differences between the provider documentation and our encodable/decodable fields.
+  Separate the two groups with a mark to aid users of ctrl-6:
 
   ```swift
   // MARK: Optional properties

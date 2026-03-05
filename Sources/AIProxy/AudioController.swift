@@ -51,13 +51,13 @@ import AVFoundation
         try? AVAudioSession.sharedInstance().setCategory(
             .playAndRecord,
             mode: .voiceChat,
-            options: [.defaultToSpeaker, .allowBluetooth]
+            options: [.defaultToSpeaker, .allowBluetoothHFP]
         )
         try? AVAudioSession.sharedInstance().setActive(true, options: [])
 
         #elseif os(watchOS)
         try? AVAudioSession.sharedInstance().setCategory(.playAndRecord)
-        try? await AVAudioSession.sharedInstance().activate(options: [])
+        _ = try? await AVAudioSession.sharedInstance().activate(options: [])
         #endif
 
         self.audioEngine = AVAudioEngine()

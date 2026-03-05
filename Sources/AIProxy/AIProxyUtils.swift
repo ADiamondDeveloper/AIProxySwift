@@ -26,13 +26,11 @@ import Network
 
 enum AIProxyUtils {
 
-    nonisolated static func directURLSession() -> URLSession {
-        return URLSession(
-            configuration: .ephemeral,
-            delegate: DirectURLSessionDataDelegate(),
-            delegateQueue: nil
-        )
-    }
+    nonisolated static let directURLSession = URLSession(
+        configuration: .ephemeral,
+        delegate: DirectURLSessionDataDelegate(),
+        delegateQueue: nil
+    )
 
     nonisolated static func proxiedURLSession() -> URLSession {
         if AIProxy.resolveDNSOverTLS {
@@ -48,7 +46,7 @@ enum AIProxyUtils {
                 fallbackResolver: .tls(host, serverAddresses: endpoints)
             )
         }
-        return AIProxyURLSession.create()
+        return AIProxyURLSession.urlSession
     }
 
 #if canImport(AppKit) && !targetEnvironment(macCatalyst)
@@ -88,8 +86,8 @@ enum AIProxyUtils {
     }
 #endif
 
-    nonisolated static func metadataHeader(withBodySize bodySize: Int?) -> String {
-        let ri = RuntimeInfo.current
+    nonisolated static func metadataHeader(withBodySize bodySize: Int?) async -> String {
+        let ri = await RuntimeInfo.getCurrent()
         let fields: [String] = [
             "v4",
             ri.bundleID,
