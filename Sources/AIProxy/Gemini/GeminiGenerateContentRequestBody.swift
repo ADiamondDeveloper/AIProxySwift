@@ -476,10 +476,29 @@ extension GeminiGenerateContentRequestBody.GenerationConfig {
     }
 
     nonisolated public struct ThinkingConfig: Encodable, Sendable {
-        public let thinkingBudget: Int
+        public let thinkingBudget: Int?
+        public let thinkingLevel: ThinkingLevel?
+        public let includeThoughts: Bool?
 
-        public init(thinkingBudget: Int) {
+        /// Init with thinkingBudget (for Gemini 2.5 models)
+        public init(thinkingBudget: Int, includeThoughts: Bool? = nil) {
             self.thinkingBudget = thinkingBudget
+            self.thinkingLevel = nil
+            self.includeThoughts = includeThoughts
+        }
+
+        /// Init with thinkingLevel (for Gemini 3.x models)
+        public init(thinkingLevel: ThinkingLevel, includeThoughts: Bool? = nil) {
+            self.thinkingBudget = nil
+            self.thinkingLevel = thinkingLevel
+            self.includeThoughts = includeThoughts
+        }
+
+        nonisolated public enum ThinkingLevel: String, Encodable, Sendable {
+            case minimal = "MINIMAL"
+            case low = "LOW"
+            case medium = "MEDIUM"
+            case high = "HIGH"
         }
     }
 
