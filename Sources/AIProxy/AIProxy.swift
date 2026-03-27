@@ -390,6 +390,39 @@ public enum AIProxy {
         )
     }
 
+    /// AIProxy's BFL (Black Forest Labs) service for FLUX image generation models.
+    ///
+    /// - Parameters:
+    ///   - partialKey: Your partial key is displayed in the AIProxy dashboard when you submit your BFL key.
+    ///   - serviceURL: The service URL is displayed in the AIProxy dashboard when you submit your BFL key.
+    ///   - clientID: An optional client ID for tracking
+    /// - Returns: An instance of BFLService configured and ready to make requests
+    nonisolated public static func bflService(
+        partialKey: String,
+        serviceURL: String,
+        clientID: String? = nil
+    ) -> BFLService {
+        return BFLProxiedService(
+            partialKey: partialKey,
+            serviceURL: serviceURL,
+            clientID: clientID
+        )
+    }
+
+    /// Service that makes requests directly to BFL. No protections are built-in for this service.
+    /// Please only use this for BYOK use cases.
+    ///
+    /// - Parameters:
+    ///   - unprotectedAPIKey: Your BFL API key
+    /// - Returns: An instance of BFLService configured and ready to make requests
+    nonisolated public static func bflDirectService(
+        unprotectedAPIKey: String
+    ) -> BFLService {
+        return BFLDirectService(
+            unprotectedAPIKey: unprotectedAPIKey
+        )
+    }
+
     /// AIProxy's DeepL service
     ///
     /// - Parameters:
