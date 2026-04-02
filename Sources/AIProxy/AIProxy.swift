@@ -390,39 +390,6 @@ public enum AIProxy {
         )
     }
 
-    /// AIProxy's BFL (Black Forest Labs) service for FLUX image generation models.
-    ///
-    /// - Parameters:
-    ///   - partialKey: Your partial key is displayed in the AIProxy dashboard when you submit your BFL key.
-    ///   - serviceURL: The service URL is displayed in the AIProxy dashboard when you submit your BFL key.
-    ///   - clientID: An optional client ID for tracking
-    /// - Returns: An instance of BFLService configured and ready to make requests
-    nonisolated public static func bflService(
-        partialKey: String,
-        serviceURL: String,
-        clientID: String? = nil
-    ) -> BFLService {
-        return BFLProxiedService(
-            partialKey: partialKey,
-            serviceURL: serviceURL,
-            clientID: clientID
-        )
-    }
-
-    /// Service that makes requests directly to BFL. No protections are built-in for this service.
-    /// Please only use this for BYOK use cases.
-    ///
-    /// - Parameters:
-    ///   - unprotectedAPIKey: Your BFL API key
-    /// - Returns: An instance of BFLService configured and ready to make requests
-    nonisolated public static func bflDirectService(
-        unprotectedAPIKey: String
-    ) -> BFLService {
-        return BFLDirectService(
-            unprotectedAPIKey: unprotectedAPIKey
-        )
-    }
-
     /// A universal proxied service for any provider.
     /// Request and response bodies are defined by the caller.
     ///
@@ -440,6 +407,26 @@ public enum AIProxy {
             partialKey: partialKey,
             serviceURL: serviceURL,
             clientID: clientID
+        )
+    }
+
+    /// A universal direct service for any provider (no proxy).
+    /// Request and response bodies are defined by the caller.
+    ///
+    /// - Parameters:
+    ///   - baseURL: The provider's base URL, e.g. "https://api.bfl.ai"
+    ///   - authHeader: The header name for authentication, e.g. "x-key" or "Authorization"
+    ///   - authValue: The header value, e.g. the API key or "Bearer <token>"
+    /// - Returns: An instance of GeneralDirectService ready to make requests
+    nonisolated public static func generalDirectService(
+        baseURL: String,
+        authHeader: String,
+        authValue: String
+    ) -> GeneralDirectService {
+        return GeneralDirectService(
+            baseURL: baseURL,
+            authHeader: authHeader,
+            authValue: authValue
         )
     }
 
