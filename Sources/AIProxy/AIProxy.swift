@@ -423,6 +423,26 @@ public enum AIProxy {
         )
     }
 
+    /// A universal proxied service for any provider.
+    /// Request and response bodies are defined by the caller.
+    ///
+    /// - Parameters:
+    ///   - partialKey: Your partial key from the AIProxy dashboard.
+    ///   - serviceURL: The service URL from the AIProxy dashboard.
+    ///   - clientID: An optional client ID for tracking
+    /// - Returns: An instance of GeneralProxiedService ready to make requests
+    nonisolated public static func generalService(
+        partialKey: String,
+        serviceURL: String,
+        clientID: String? = nil
+    ) -> GeneralProxiedService {
+        return GeneralProxiedService(
+            partialKey: partialKey,
+            serviceURL: serviceURL,
+            clientID: clientID
+        )
+    }
+
     /// AIProxy's DeepL service
     ///
     /// - Parameters:
