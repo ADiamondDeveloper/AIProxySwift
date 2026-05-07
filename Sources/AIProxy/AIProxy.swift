@@ -397,16 +397,23 @@ public enum AIProxy {
     ///   - partialKey: Your partial key from the AIProxy dashboard.
     ///   - serviceURL: The service URL from the AIProxy dashboard.
     ///   - clientID: An optional client ID for tracking
+    ///   - additionalHeaders: Headers attached to every request made by this
+    ///     service. Use the reserved `aiproxy-key-format` header
+    ///     (e.g. `["aiproxy-key-format": "x-key: {{key}}"]`) to wire providers
+    ///     whose auth scheme is not `Authorization: Bearer <key>`. `{{key}}`
+    ///     is substituted with the reassembled API key on the AIProxy side.
     /// - Returns: An instance of GeneralProxiedService ready to make requests
     nonisolated public static func generalService(
         partialKey: String,
         serviceURL: String,
-        clientID: String? = nil
+        clientID: String? = nil,
+        additionalHeaders: [String: String] = [:]
     ) -> GeneralProxiedService {
         return GeneralProxiedService(
             partialKey: partialKey,
             serviceURL: serviceURL,
-            clientID: clientID
+            clientID: clientID,
+            additionalHeaders: additionalHeaders
         )
     }
 
