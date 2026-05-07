@@ -91,4 +91,30 @@ import Foundation
         return try await self.makeRequestAndDeserializeResponse(request)
     }
 
+    /// Makes a GET request to an absolute URL, bypassing AIProxy entirely.
+    /// Useful for self-authenticated polling URLs returned by an earlier
+    /// `post`/`get` (e.g. bfl.ai's signed `polling_url` field) — those URLs
+    /// already encode their own authorization in query parameters, so
+    /// re-routing them through the proxy would just add latency.
+    ///
+    /// - Parameters:
+    ///   - url: The absolute URL returned by the upstream service.
+    ///   - secondsToWait: Timeout in seconds (default: 30).
+    /// - Returns: The deserialized response of type `R`.
+    public func getDirect<R: Decodable & Sendable>(
+        url: URL,
+        secondsToWait: UInt = 30
+    ) async throws -> R {
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.addValue("application/json", forHTTPHeaderField: "accept")
+        request.timeoutInterval = TimeInterval(secondsToWait)
+
+        let (data, _) = try await BackgroundNetworker.makeRequestAndWaitForData(
+            URLSession.shared,
+            request
+        )
+        return try R.deserialize(from: data)
+    }
+
 }
