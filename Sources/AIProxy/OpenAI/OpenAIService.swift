@@ -99,6 +99,62 @@ import Foundation
         return try await self.serviceNetworker.makeRequestAndDeserializeResponse(request)
     }
 
+    /// Initiates a streaming create image request to `/v1/images/generations` so
+    /// the caller can render lower-resolution previews while the final image
+    /// is still being generated. Sets `body.stream = true` automatically.
+    ///
+    /// - Parameters:
+    ///   - body: The request body. Set `partialImages` (1...3) to control how
+    ///           many preview frames OpenAI emits before the final one.
+    ///   - secondsToWait: Seconds to wait before raising `URLError.timedOut`.
+    ///   - additionalHeaders: Optional headers to pass alongside the lib's defaults.
+    /// - Returns: An async sequence of streaming events. Expect zero or more
+    ///            `.partialImage` events followed by exactly one `.completed`.
+    /// - SeeAlso: https://platform.openai.com/docs/api-reference/images/createImage
+    public func streamingCreateImageRequest(
+        body: OpenAICreateImageRequestBody,
+        secondsToWait: UInt,
+        additionalHeaders: [String: String] = [:]
+    ) async throws -> AsyncThrowingStream<OpenAICreateImageStreamingEvent, Error> {
+        var body = body
+        body.stream = true
+        let request = try await self.requestBuilder.jsonPOST(
+            path: self.resolvedPath("images/generations"),
+            body: body,
+            secondsToWait: secondsToWait,
+            additionalHeaders: additionalHeaders
+        )
+        return try await self.serviceNetworker.makeRequestAndDeserializeStreamingChunks(request)
+    }
+
+    /// Initiates a streaming create image edit request to `/v1/images/edits`
+    /// so the caller can render lower-resolution previews while the final
+    /// image is still being generated. Sets `body.stream = true` automatically.
+    ///
+    /// - Parameters:
+    ///   - body: The edit request body. Set `partialImages` (1...3) to control
+    ///           how many preview frames OpenAI emits before the final one.
+    ///   - secondsToWait: Seconds to wait before raising `URLError.timedOut`.
+    ///   - additionalHeaders: Optional headers to pass alongside the lib's defaults.
+    /// - Returns: An async sequence of streaming events. Expect zero or more
+    ///            `.partialImage` events followed by exactly one `.completed`.
+    /// - SeeAlso: https://platform.openai.com/docs/api-reference/images/createEdit
+    public func streamingCreateImageEditRequest(
+        body: OpenAICreateImageEditRequestBody,
+        secondsToWait: UInt,
+        additionalHeaders: [String: String] = [:]
+    ) async throws -> AsyncThrowingStream<OpenAICreateImageStreamingEvent, Error> {
+        var body = body
+        body.stream = true
+        let request = try await self.requestBuilder.multipartPOST(
+            path: self.resolvedPath("images/edits"),
+            body: body,
+            secondsToWait: secondsToWait,
+            additionalHeaders: additionalHeaders
+        )
+        return try await self.serviceNetworker.makeRequestAndDeserializeStreamingChunks(request)
+    }
+
     /// Initiates a create image edit request to `v1/images/edits`
     ///
     /// - Parameters:

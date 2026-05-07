@@ -77,6 +77,15 @@ nonisolated public struct OpenAICreateImageEditRequestBody: MultipartFormEncodab
     /// A unique identifier representing your end-user, which can help OpenAI to monitor and detect abuse.
     public let user: String?
 
+    /// If set, partial image deltas will be streamed via Server-Sent Events.
+    /// Use `OpenAIService.streamingCreateImageEditRequest` rather than setting
+    /// this flag manually — the streaming method will set it for you.
+    public var stream: Bool?
+
+    /// Number of partial images to emit while the final image is rendering, 0–3.
+    /// Defaults to 0. Requires `stream = true`. Only supported by gpt-image-* models.
+    public var partialImages: Int?
+
     public var formFields: [FormField] {
         var builder: [FormField] = []
         self.setImageFormField(builder: &builder)
@@ -91,7 +100,9 @@ nonisolated public struct OpenAICreateImageEditRequestBody: MultipartFormEncodab
             self.quality.flatMap { .textField(name: "quality", content: $0.rawValue) },
             self.responseFormat.flatMap { .textField(name: "response_format", content: $0.rawValue) },
             self.size.flatMap { .textField(name: "size", content: $0) },
-            self.user.flatMap { .textField(name: "user", content: $0) }
+            self.user.flatMap { .textField(name: "user", content: $0) },
+            self.stream.flatMap { .textField(name: "stream", content: $0 ? "true" : "false") },
+            self.partialImages.flatMap { .textField(name: "partial_images", content: String($0)) }
         ].compactMap { $0 }
     }
 
@@ -110,7 +121,9 @@ nonisolated public struct OpenAICreateImageEditRequestBody: MultipartFormEncodab
         quality: OpenAICreateImageEditRequestBody.Quality? = nil,
         responseFormat: OpenAICreateImageEditRequestBody.ResponseFormat? = nil,
         size: String? = nil,
-        user: String? = nil
+        user: String? = nil,
+        stream: Bool? = nil,
+        partialImages: Int? = nil
     ) {
         self.images = images
         self.prompt = prompt
@@ -124,6 +137,8 @@ nonisolated public struct OpenAICreateImageEditRequestBody: MultipartFormEncodab
         self.responseFormat = responseFormat
         self.size = size
         self.user = user
+        self.stream = stream
+        self.partialImages = partialImages
     }
 
     private func setImageFormField(builder: inout [FormField]) {
