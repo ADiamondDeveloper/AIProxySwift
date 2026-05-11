@@ -20,13 +20,6 @@ nonisolated public struct DeepSeekChatCompletionRequestBody: Encodable, Sendable
 
     // Optional
 
-    /// Number between -2.0 and 2.0. Positive values penalize new tokens based on their
-    /// existing frequency in the text so far, decreasing the model's likelihood to repeat the
-    /// same line verbatim.
-    ///
-    /// Defaults to 0
-    public let frequencyPenalty: Double?
-
     /// Whether to return log probabilities of the output tokens or not. If true, returns the
     /// log probabilities of each output token returned in the `content` of `message`.
     ///
@@ -38,11 +31,11 @@ nonisolated public struct DeepSeekChatCompletionRequestBody: Encodable, Sendable
     /// If `maxTokens` is not specified, the default value 4096 is used.
     public let maxTokens: Int?
 
-    /// Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they
-    /// appear in the text so far, increasing the model's likelihood to talk about new topics.
-    ///
-    /// Defaults to 0
-    public let presencePenalty: Double?
+    /// Controls the depth of the model's chain-of-thought reasoning when `thinking` is enabled.
+    /// In thinking mode, `low` and `medium` are mapped to `high`, and `xhigh` is mapped to `max`.
+    /// The default effort is `high` for regular requests.
+    /// See: https://api-docs.deepseek.com/ (Thinking Mode → Effort Control)
+    public let reasoningEffort: ReasoningEffort?
 
     /// Specifies the format that the model must output. Please see the docstring on
     /// `ResponseFormat` for important usage information
@@ -67,8 +60,17 @@ nonisolated public struct DeepSeekChatCompletionRequestBody: Encodable, Sendable
     ///
     /// We generally recommend altering this or `topP` but not both.
     ///
+    /// Important: Thinking mode does not support `temperature` or `topP` — these parameters
+    /// will be silently ignored when `thinking` is enabled.
+    ///
     /// Defaults to 1
     public let temperature: Double?
+
+    /// Enables or disables DeepSeek's chain-of-thought thinking mode. When enabled, the model
+    /// emits a `reasoningContent` block before the final answer. The toggle defaults to
+    /// `enabled` server-side for models that support thinking (e.g. `deepseek-v4-pro`).
+    /// See: https://api-docs.deepseek.com/ (Thinking Mode)
+    public let thinking: ThinkingConfig?
 
     /// A list of tools the model may call. Currently, only functions are supported as a tool.
     /// Use this to provide a list of functions the model may generate JSON inputs for. A max
@@ -99,15 +101,15 @@ nonisolated public struct DeepSeekChatCompletionRequestBody: Encodable, Sendable
         case model
 
         // optional
-        case frequencyPenalty = "frequency_penalty"
         case logprobs
         case maxTokens = "max_tokens"
-        case presencePenalty = "presence_penalty"
+        case reasoningEffort = "reasoning_effort"
         case responseFormat = "response_format"
         case stop
         case stream
         case streamOptions = "stream_options"
         case temperature
+        case thinking
         case tools
         case toolChoice = "tool_choice"
         case topLogprobs = "top_logprobs"
@@ -120,15 +122,15 @@ nonisolated public struct DeepSeekChatCompletionRequestBody: Encodable, Sendable
     public init(
         messages: [DeepSeekChatCompletionRequestBody.Message],
         model: String,
-        frequencyPenalty: Double? = nil,
         logprobs: Bool? = nil,
         maxTokens: Int? = nil,
-        presencePenalty: Double? = nil,
+        reasoningEffort: DeepSeekChatCompletionRequestBody.ReasoningEffort? = nil,
         responseFormat: DeepSeekChatCompletionRequestBody.ResponseFormat? = nil,
         stop: [String]? = nil,
         stream: Bool? = nil,
         streamOptions: DeepSeekChatCompletionRequestBody.StreamOptions? = nil,
         temperature: Double? = nil,
+        thinking: DeepSeekChatCompletionRequestBody.ThinkingConfig? = nil,
         tools: [DeepSeekChatCompletionRequestBody.Tool]? = nil,
         toolChoice: DeepSeekChatCompletionRequestBody.ToolChoice? = nil,
         topLogprobs: Int? = nil,
@@ -136,15 +138,15 @@ nonisolated public struct DeepSeekChatCompletionRequestBody: Encodable, Sendable
     ) {
         self.messages = messages
         self.model = model
-        self.frequencyPenalty = frequencyPenalty
         self.logprobs = logprobs
         self.maxTokens = maxTokens
-        self.presencePenalty = presencePenalty
+        self.reasoningEffort = reasoningEffort
         self.responseFormat = responseFormat
         self.stop = stop
         self.stream = stream
         self.streamOptions = streamOptions
         self.temperature = temperature
+        self.thinking = thinking
         self.tools = tools
         self.toolChoice = toolChoice
         self.topLogprobs = topLogprobs
@@ -348,6 +350,48 @@ extension DeepSeekChatCompletionRequestBody {
                 try functionContainer.encodeIfPresent(parameters, forKey: .parameters)
             }
         }
+    }
+}
+
+// MARK: - RequestBody.ThinkingConfig
+extension DeepSeekChatCompletionRequestBody {
+
+    /// Toggle for DeepSeek's chain-of-thought thinking mode.
+    ///
+    /// Encodes as `{"type": "enabled"}` or `{"type": "disabled"}`. The server-side default is
+    /// `enabled` for models that support thinking; pass `.disabled` explicitly to opt out.
+    /// Depth of reasoning is controlled separately via `reasoningEffort`.
+    nonisolated public enum ThinkingConfig: Encodable, Sendable {
+        case enabled
+        case disabled
+
+        private enum CodingKeys: String, CodingKey {
+            case type
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            switch self {
+            case .enabled:
+                try container.encode("enabled", forKey: .type)
+            case .disabled:
+                try container.encode("disabled", forKey: .type)
+            }
+        }
+    }
+}
+
+// MARK: - RequestBody.ReasoningEffort
+extension DeepSeekChatCompletionRequestBody {
+
+    /// Controls the depth of reasoning when `thinking` is enabled.
+    /// `low` and `medium` are mapped to `high` server-side; `xhigh` is mapped to `max`.
+    nonisolated public enum ReasoningEffort: String, Encodable, Sendable {
+        case low
+        case medium
+        case high
+        case xhigh
+        case max
     }
 }
 
