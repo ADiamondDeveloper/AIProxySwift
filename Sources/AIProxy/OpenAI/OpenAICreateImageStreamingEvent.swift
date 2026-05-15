@@ -1,8 +1,12 @@
 //
 //  OpenAICreateImageStreamingEvent.swift
 //
-//  Created for streaming /v1/images/generations responses with partial_images.
+//  Created for streaming /v1/images/generations AND /v1/images/edits
+//  responses with partial_images. Both endpoints emit chunks with the same
+//  payload shape, differing only by the `type` discriminator prefix:
+//  `image_generation.*` for /generations, `image_edit.*` for /edits.
 //  https://platform.openai.com/docs/api-reference/images/createImage
+//  https://platform.openai.com/docs/api-reference/images/createImageEdit
 //
 
 import Foundation
@@ -103,15 +107,15 @@ nonisolated public enum OpenAICreateImageStreamingEvent: Decodable, Sendable {
         let container = try decoder.container(keyedBy: DiscriminatorKeys.self)
         let type = try container.decode(String.self, forKey: .type)
         switch type {
-        case "image_generation.partial_image":
+        case "image_generation.partial_image", "image_edit.partial_image":
             self = .partialImage(try PartialImage(from: decoder))
-        case "image_generation.completed":
+        case "image_generation.completed", "image_edit.completed":
             self = .completed(try Completed(from: decoder))
         default:
             throw DecodingError.dataCorruptedError(
                 forKey: .type,
                 in: container,
-                debugDescription: "Unknown image_generation streaming event type: \(type)")
+                debugDescription: "Unknown image streaming event type: \(type)")
         }
     }
 }
