@@ -70,4 +70,31 @@ import Foundation
         )
         return try await self.makeRequestAndDeserializeStreamingChunks(request)
     }
+
+    /// Calls Perplexity's Agent API (`POST /v1/agent`).
+    public func agentRequest(
+        body: PerplexityAgentRequestBody,
+        secondsToWait: UInt = 120
+    ) async throws -> PerplexityAgentResponseBody {
+        let request = try AIProxyURLRequest.createDirect(
+            baseURL: "https://api.perplexity.ai",
+            path: "/v1/agent",
+            body: try JSONEncoder.aiproxyPerplexityDirect.encode(body),
+            verb: .post,
+            secondsToWait: secondsToWait,
+            contentType: "application/json",
+            additionalHeaders: [
+                "Authorization": "Bearer \(self.unprotectedAPIKey)"
+            ]
+        )
+        return try await self.makeRequestAndDeserializeResponse(request)
+    }
+}
+
+private extension JSONEncoder {
+    static let aiproxyPerplexityDirect: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .useDefaultKeys
+        return encoder
+    }()
 }
