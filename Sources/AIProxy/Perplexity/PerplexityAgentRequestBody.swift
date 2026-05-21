@@ -8,15 +8,21 @@
 import Foundation
 
 /// Request body for Perplexity's Agent API. Different shape than the
-/// Chat Completions API: takes a single `input` string (the user
-/// query) plus an explicit `tools` array. The agent runtime decides
-/// when to invoke each tool (`web_search`, `people_search`,
-/// `finance_search`, ...) and returns a structured `output` array.
+/// Chat Completions API: takes an `input` (plain text query OR a
+/// structured array of role-tagged messages with typed content blocks)
+/// plus an explicit `tools` array. The agent runtime decides when to
+/// invoke each tool (`web_search`, `people_search`, `finance_search`,
+/// ...) and returns a structured `output` array.
+///
+/// Multimodal: pass `Input.messages([...])` with `ContentBlock`s
+/// containing `.inputText` and `.inputImage` to send an image (data
+/// URI or remote URL) alongside the query. Vision-capable models only
+/// (e.g. `openai/gpt-5-mini`).
 ///
 /// Reference: https://docs.perplexity.ai/docs/agent-api/quickstart
 public struct PerplexityAgentRequestBody: Encodable, Sendable {
     public let model: String
-    public let input: String
+    public let input: Input
     public let tools: [Tool]
     public let instructions: String?
     public let preset: String?
@@ -41,7 +47,7 @@ public struct PerplexityAgentRequestBody: Encodable, Sendable {
 
     public init(
         model: String,
-        input: String,
+        input: Input,
         tools: [Tool],
         instructions: String? = nil,
         preset: String? = nil,
@@ -61,6 +67,101 @@ public struct PerplexityAgentRequestBody: Encodable, Sendable {
         self.reasoning = reasoning
         self.temperature = temperature
         self.topP = topP
+    }
+
+    /// Convenience overload for the plain-text input case — preserves
+    /// the original `init(model:input:tools:...)` ergonomics from
+    /// before multimodal support landed.
+    public init(
+        model: String,
+        input: String,
+        tools: [Tool],
+        instructions: String? = nil,
+        preset: String? = nil,
+        maxOutputTokens: Int? = nil,
+        maxSteps: Int? = nil,
+        reasoning: Reasoning? = nil,
+        temperature: Double? = nil,
+        topP: Double? = nil
+    ) {
+        self.init(
+            model: model,
+            input: .text(input),
+            tools: tools,
+            instructions: instructions,
+            preset: preset,
+            maxOutputTokens: maxOutputTokens,
+            maxSteps: maxSteps,
+            reasoning: reasoning,
+            temperature: temperature,
+            topP: topP
+        )
+    }
+
+    /// Top-level `input` payload. Perplexity accepts either:
+    ///   - a bare string (legacy, single-turn text-only), or
+    ///   - an array of role-tagged messages with typed content blocks
+    ///     (text + image, multi-turn).
+    public enum Input: Encodable, Sendable {
+        case text(String)
+        case messages([InputMessage])
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            switch self {
+            case .text(let string):
+                try container.encode(string)
+            case .messages(let messages):
+                try container.encode(messages)
+            }
+        }
+    }
+
+    /// One turn in a multimodal `Input.messages` array.
+    public struct InputMessage: Encodable, Sendable {
+        public let role: Role
+        public let content: [ContentBlock]
+
+        public init(role: Role, content: [ContentBlock]) {
+            self.role = role
+            self.content = content
+        }
+
+        public enum Role: String, Encodable, Sendable {
+            case user
+            case assistant
+            case system
+            case developer
+        }
+    }
+
+    /// Typed content block inside an `InputMessage.content` array.
+    /// Perplexity Agent expects `input_text` / `input_image` (their
+    /// own naming — note the `input_` prefix, distinct from OpenAI's
+    /// Responses API which uses bare `text` / `image_url`).
+    public enum ContentBlock: Encodable, Sendable {
+        case inputText(String)
+        /// `imageURL` accepts either a remote `https://...` URL or a
+        /// `data:image/<mime>;base64,<...>` data URI.
+        case inputImage(String)
+
+        private enum CodingKeys: String, CodingKey {
+            case type
+            case text
+            case imageURL = "image_url"
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            switch self {
+            case .inputText(let text):
+                try container.encode("input_text", forKey: .type)
+                try container.encode(text, forKey: .text)
+            case .inputImage(let url):
+                try container.encode("input_image", forKey: .type)
+                try container.encode(url, forKey: .imageURL)
+            }
+        }
     }
 
     /// Reasoning-effort knob for models that support chain-of-thought
