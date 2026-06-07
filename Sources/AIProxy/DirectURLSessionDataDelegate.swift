@@ -76,4 +76,52 @@ nonisolated final class DirectURLSessionDataDelegate: NSObject, URLSessionTaskDe
         }
     }
 
+    // MARK: - Optional public-key pinning
+    // Off unless `AIProxyDirectPinning.publicKeys` is set (default TLS trust
+    // otherwise — so unconfigured callers and localhost dev keep working).
+
+    public func urlSession(
+        _ session: URLSession,
+        didReceive challenge: URLAuthenticationChallenge
+    ) async -> (URLSession.AuthChallengeDisposition, URLCredential?) {
+        return Self.answerChallenge(challenge)
+    }
+
+    public func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        didReceive challenge: URLAuthenticationChallenge
+    ) async -> (URLSession.AuthChallengeDisposition, URLCredential?) {
+        return Self.answerChallenge(challenge)
+    }
+
+    private static func answerChallenge(
+        _ challenge: URLAuthenticationChallenge
+    ) -> (URLSession.AuthChallengeDisposition, URLCredential?) {
+        // Pinning entirely off → default trust.
+        guard AIProxyDirectPinning.isActive else {
+            return (.performDefaultHandling, nil)
+        }
+        // Only server-trust challenges are pinned; others → default handling.
+        guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+              let secTrust = challenge.protectionSpace.serverTrust else {
+            return (.performDefaultHandling, nil)
+        }
+        guard let cert = serverLeaf(secTrust),
+              let serverKey = SecCertificateCopyKey(cert),
+              let serverKeyData = SecKeyCopyExternalRepresentation(serverKey, nil) as Data? else {
+            return (.cancelAuthenticationChallenge, nil)
+        }
+        // enforced with an empty/non-matching pin set → cancel (fail-closed).
+        return AIProxyDirectPinning.publicKeys.contains(serverKeyData)
+            ? (.useCredential, URLCredential(trust: secTrust))
+            : (.cancelAuthenticationChallenge, nil)
+    }
+
+    private static func serverLeaf(_ secTrust: SecTrust) -> SecCertificate? {
+        if #available(macOS 12.0, iOS 15.0, *) {
+            return (SecTrustCopyCertificateChain(secTrust) as? [SecCertificate])?.first
+        }
+        return SecTrustGetCertificateAtIndex(secTrust, 0)
+    }
 }
