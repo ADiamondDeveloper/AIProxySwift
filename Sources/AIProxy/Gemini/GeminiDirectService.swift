@@ -9,13 +9,16 @@ import Foundation
 
 @AIProxyActor final class GeminiDirectService: GeminiService, DirectService, Sendable {
     private let unprotectedAPIKey: String
+    private let baseURL: String
 
     /// This initializer is not public on purpose.
     /// Customers are expected to use the factory `AIProxy.geminiDirectService` defined in AIProxy.swift
     nonisolated init(
-        unprotectedAPIKey: String
+        unprotectedAPIKey: String,
+        baseURL: String? = nil
     ) {
         self.unprotectedAPIKey = unprotectedAPIKey
+        self.baseURL = baseURL ?? "https://generativelanguage.googleapis.com"
     }
 
     /// Generate content using Gemini. Google puts chat completions, audio transcriptions, and
@@ -35,7 +38,7 @@ import Foundation
     ) async throws -> GeminiGenerateContentResponseBody {
         let proxyPath = "/v1beta/models/\(model):generateContent"
         let request = try AIProxyURLRequest.createDirect(
-            baseURL: "https://generativelanguage.googleapis.com",
+            baseURL: self.baseURL,
             path: proxyPath,
             body:  body.serialize(),
             verb: .post,
@@ -66,7 +69,7 @@ import Foundation
     ) async throws -> AsyncThrowingStream<GeminiGenerateContentResponseBody, Error> {
         let proxyPath = "/v1beta/models/\(model):streamGenerateContent?alt=sse"
         let request = try AIProxyURLRequest.createDirect(
-            baseURL: "https://generativelanguage.googleapis.com",
+            baseURL: self.baseURL,
             path: proxyPath,
             body:  body.serialize(),
             verb: .post,
@@ -86,7 +89,7 @@ import Foundation
     ) async throws -> GeminiImagenResponseBody {
         let proxyPath = "/v1beta/models/\(model):predict"
         let request = try AIProxyURLRequest.createDirect(
-            baseURL: "https://generativelanguage.googleapis.com",
+            baseURL: self.baseURL,
             path: proxyPath,
             body:  body.serialize(),
             verb: .post,
@@ -123,7 +126,7 @@ import Foundation
         let body = GeminiFileUploadRequestBody(fileData: fileData, mimeType: mimeType)
         let boundary = UUID().uuidString
         let request = try AIProxyURLRequest.createDirect(
-            baseURL: "https://generativelanguage.googleapis.com",
+            baseURL: self.baseURL,
             path: "/upload/v1beta/files",
             body: body.serialize(withBoundary: boundary),
             verb: .post,
@@ -204,7 +207,7 @@ import Foundation
     ) async throws -> GeminiBatchResponseBody {
         let proxyPath = "/v1beta/models/\(model):batchGenerateContent"
         let request = try AIProxyURLRequest.createDirect(
-            baseURL: "https://generativelanguage.googleapis.com",
+            baseURL: self.baseURL,
             path: proxyPath,
             body: body.serialize(),
             verb: .post,
@@ -225,7 +228,7 @@ import Foundation
     ) async throws -> GeminiBatchResponseBody {
         let proxyPath = "/v1beta/\(batchJobName)"
         let request = try AIProxyURLRequest.createDirect(
-            baseURL: "https://generativelanguage.googleapis.com",
+            baseURL: self.baseURL,
             path: proxyPath,
             body: nil,
             verb: .get,
@@ -246,7 +249,7 @@ import Foundation
     ) async throws -> GeminiBatchResponseBody {
         let proxyPath = "/v1beta/\(batchJobName):cancel"
         let request = try AIProxyURLRequest.createDirect(
-            baseURL: "https://generativelanguage.googleapis.com",
+            baseURL: self.baseURL,
             path: proxyPath,
             body: nil,
             verb: .post,
@@ -271,7 +274,7 @@ import Foundation
     ) async throws -> Data {
         let proxyPath = "/v1beta/\(fileName):download?alt=media"
         let request = try AIProxyURLRequest.createDirect(
-            baseURL: "https://generativelanguage.googleapis.com",
+            baseURL: self.baseURL,
             path: proxyPath,
             body: nil,
             verb: .get,

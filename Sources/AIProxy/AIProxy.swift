@@ -293,10 +293,12 @@ public enum AIProxy {
     ///   - unprotectedAPIKey: Your Gemini API key
     /// - Returns: An instance of  GeminiService configured and ready to make requests
     nonisolated public static func geminiDirectService(
-        unprotectedAPIKey: String
+        unprotectedAPIKey: String,
+        baseURL: String? = nil
     ) -> GeminiService {
         return GeminiDirectService(
-            unprotectedAPIKey: unprotectedAPIKey
+            unprotectedAPIKey: unprotectedAPIKey,
+            baseURL: baseURL
         )
     }
 
@@ -743,10 +745,12 @@ public enum AIProxy {
     ///   - unprotectedAPIKey: Your Perplexity API key
     /// - Returns: An instance of  PerplexityService configured and ready to make requests
     nonisolated public static func perplexityDirectService(
-        unprotectedAPIKey: String
+        unprotectedAPIKey: String,
+        baseURL: String? = nil
     ) -> PerplexityService {
         return PerplexityDirectService(
-            unprotectedAPIKey: unprotectedAPIKey
+            unprotectedAPIKey: unprotectedAPIKey,
+            baseURL: baseURL
         )
     }
 

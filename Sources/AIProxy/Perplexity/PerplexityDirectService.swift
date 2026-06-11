@@ -9,13 +9,16 @@ import Foundation
 
 @AIProxyActor final class PerplexityDirectService: PerplexityService, DirectService, Sendable {
     private let unprotectedAPIKey: String
+    private let baseURL: String
 
     /// This initializer is not public on purpose.
     /// Customers are expected to use the factory `AIProxy.perplexityDirectService` defined in AIProxy.swift
     nonisolated init(
-        unprotectedAPIKey: String
+        unprotectedAPIKey: String,
+        baseURL: String? = nil
     ) {
         self.unprotectedAPIKey = unprotectedAPIKey
+        self.baseURL = baseURL ?? "https://api.perplexity.ai"
     }
 
     /// Initiates a non-streaming chat completion request to Perplexity
@@ -31,7 +34,7 @@ import Foundation
         var body = body
         body.stream = false
         let request = try AIProxyURLRequest.createDirect(
-            baseURL: "https://api.perplexity.ai",
+            baseURL: self.baseURL,
             path: "/chat/completions",
             body: try body.serialize(),
             verb: .post,
@@ -58,7 +61,7 @@ import Foundation
         var body = body
         body.stream = true
         let request = try AIProxyURLRequest.createDirect(
-            baseURL: "https://api.perplexity.ai",
+            baseURL: self.baseURL,
             path: "/chat/completions",
             body:  try body.serialize(),
             verb: .post,
@@ -77,7 +80,7 @@ import Foundation
         secondsToWait: UInt = 120
     ) async throws -> PerplexityAgentResponseBody {
         let request = try AIProxyURLRequest.createDirect(
-            baseURL: "https://api.perplexity.ai",
+            baseURL: self.baseURL,
             path: "/v1/agent",
             body: try JSONEncoder.aiproxyPerplexityDirect.encode(body),
             verb: .post,
