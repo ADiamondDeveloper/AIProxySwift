@@ -100,12 +100,18 @@ extension OpenAIChatCompletionChunk.Choice {
         public let role: String?
 
         public let toolCalls: [ToolCall]?
-        
-        public init(content: String?, refusal: String?, role: String?, toolCalls: [ToolCall]?) {
+
+        /// Reasoning/thinking tokens streamed by OpenAI-compatible providers
+        /// (DeepSeek, Qwen, GLM, Grok, …) under `reasoning_content`. Not part
+        /// of OpenAI's own schema — nil there.
+        public let reasoningContent: String?
+
+        public init(content: String?, refusal: String?, role: String?, toolCalls: [ToolCall]?, reasoningContent: String? = nil) {
             self.content = content
             self.refusal = refusal
             self.role = role
             self.toolCalls = toolCalls
+            self.reasoningContent = reasoningContent
         }
 
         private enum CodingKeys: String, CodingKey {
@@ -113,6 +119,7 @@ extension OpenAIChatCompletionChunk.Choice {
             case refusal
             case role
             case toolCalls = "tool_calls"
+            case reasoningContent = "reasoning_content"
         }
     }
 }

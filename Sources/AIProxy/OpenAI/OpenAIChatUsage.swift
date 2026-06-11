@@ -22,11 +22,16 @@ nonisolated public struct OpenAIChatUsage: Decodable, Sendable {
     /// Breakdown of tokens used in a completion.
     public let completionTokensDetails: Details?
 
+    /// Breakdown of tokens used in the prompt (e.g. how many were served from
+    /// the provider's prompt cache).
+    public let promptTokensDetails: PromptTokensDetails?
+
     private enum CodingKeys: String, CodingKey {
         case completionTokens = "completion_tokens"
         case promptTokens = "prompt_tokens"
         case totalTokens = "total_tokens"
         case completionTokensDetails = "completion_tokens_details"
+        case promptTokensDetails = "prompt_tokens_details"
     }
 }
 
@@ -38,6 +43,15 @@ extension OpenAIChatUsage {
 
         private enum CodingKeys: String, CodingKey {
             case reasoningTokens = "reasoning_tokens"
+        }
+    }
+
+    nonisolated public struct PromptTokensDetails: Decodable, Sendable {
+        /// Number of prompt tokens served from the provider's prompt cache.
+        public let cachedTokens: Int?
+
+        private enum CodingKeys: String, CodingKey {
+            case cachedTokens = "cached_tokens"
         }
     }
 }
