@@ -11,12 +11,15 @@ import Foundation
 
     nonisolated init(
         unprotectedAPIKey: String,
-        baseURL: String? = nil
+        baseURL: String? = nil,
+        additionalHeaders: [String: String] = [:],
+        unprotectedAuthHeader: (key: String, value: String)? = nil
     ) {
         let baseURL = baseURL ?? "https://api.anthropic.com"
         let requestBuilder = AIProxyDirectRequestBuilder(
             baseURL: baseURL,
-            unprotectedAuthHeader: (key: "x-api-key", value: unprotectedAPIKey)
+            unprotectedAuthHeader: unprotectedAuthHeader ?? (key: "x-api-key", value: unprotectedAPIKey),
+            extraHeaders: additionalHeaders
         )
         super.init(
             requestBuilder: requestBuilder,

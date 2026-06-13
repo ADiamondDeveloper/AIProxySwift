@@ -247,12 +247,16 @@ public enum AIProxy {
     nonisolated public static func openAIDirectService(
         unprotectedAPIKey: String,
         baseURL: String? = nil,
-        requestFormat: OpenAIRequestFormat = .standard
+        requestFormat: OpenAIRequestFormat = .standard,
+        additionalHeaders: [String: String] = [:],
+        unprotectedAuthHeader: (key: String, value: String)? = nil
     ) -> OpenAIService {
         return OpenAIDirectService(
             unprotectedAPIKey: unprotectedAPIKey,
             requestFormat: requestFormat,
-            baseURL: baseURL
+            baseURL: baseURL,
+            additionalHeaders: additionalHeaders,
+            unprotectedAuthHeader: unprotectedAuthHeader
         )
     }
 
@@ -294,11 +298,15 @@ public enum AIProxy {
     /// - Returns: An instance of  GeminiService configured and ready to make requests
     nonisolated public static func geminiDirectService(
         unprotectedAPIKey: String,
-        baseURL: String? = nil
+        baseURL: String? = nil,
+        additionalHeaders: [String: String] = [:],
+        unprotectedAuthHeader: (key: String, value: String)? = nil
     ) -> GeminiService {
         return GeminiDirectService(
             unprotectedAPIKey: unprotectedAPIKey,
-            baseURL: baseURL
+            baseURL: baseURL,
+            additionalHeaders: additionalHeaders,
+            unprotectedAuthHeader: unprotectedAuthHeader
         )
     }
 
@@ -340,11 +348,15 @@ public enum AIProxy {
     /// - Returns: An instance of AnthropicService configured and ready to make requests
     nonisolated public static func anthropicDirectService(
         unprotectedAPIKey: String,
-        baseURL: String? = nil
+        baseURL: String? = nil,
+        additionalHeaders: [String: String] = [:],
+        unprotectedAuthHeader: (key: String, value: String)? = nil
     ) -> AnthropicService {
         return AnthropicDirectService(
             unprotectedAPIKey: unprotectedAPIKey,
-            baseURL: baseURL
+            baseURL: baseURL,
+            additionalHeaders: additionalHeaders,
+            unprotectedAuthHeader: unprotectedAuthHeader
         )
     }
 
@@ -746,11 +758,15 @@ public enum AIProxy {
     /// - Returns: An instance of  PerplexityService configured and ready to make requests
     nonisolated public static func perplexityDirectService(
         unprotectedAPIKey: String,
-        baseURL: String? = nil
+        baseURL: String? = nil,
+        additionalHeaders: [String: String] = [:],
+        unprotectedAuthHeader: (key: String, value: String)? = nil
     ) -> PerplexityService {
         return PerplexityDirectService(
             unprotectedAPIKey: unprotectedAPIKey,
-            baseURL: baseURL
+            baseURL: baseURL,
+            additionalHeaders: additionalHeaders,
+            unprotectedAuthHeader: unprotectedAuthHeader
         )
     }
 
@@ -926,11 +942,15 @@ public enum AIProxy {
     /// - Returns: An instance of  DeepSeek configured and ready to make requests
     nonisolated public static func deepSeekDirectService(
         unprotectedAPIKey: String,
-        baseURL: String? = nil
+        baseURL: String? = nil,
+        additionalHeaders: [String: String] = [:],
+        unprotectedAuthHeader: (key: String, value: String)? = nil
     ) -> DeepSeekService {
         return DeepSeekDirectService(
             unprotectedAPIKey: unprotectedAPIKey,
-            baseURL: baseURL
+            baseURL: baseURL,
+            additionalHeaders: additionalHeaders,
+            unprotectedAuthHeader: unprotectedAuthHeader
         )
     }
 

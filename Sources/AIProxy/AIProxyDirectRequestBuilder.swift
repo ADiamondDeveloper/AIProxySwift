@@ -10,10 +10,16 @@ import Foundation
 @AIProxyActor struct AIProxyDirectRequestBuilder: AIProxyRequestBuilder {
     let baseURL: String
     let unprotectedAuthHeader: (key: String, value: String)
+    let extraHeaders: [String: String]
 
-    nonisolated init(baseURL: String, unprotectedAuthHeader: (key: String, value: String)) {
+    nonisolated init(
+        baseURL: String,
+        unprotectedAuthHeader: (key: String, value: String),
+        extraHeaders: [String: String] = [:]
+    ) {
         self.baseURL = baseURL
         self.unprotectedAuthHeader = unprotectedAuthHeader
+        self.extraHeaders = extraHeaders
     }
 
     func jsonPOST(
@@ -86,8 +92,10 @@ import Foundation
     }
 
     private func mergedHeaders(additionalHeaders: [String: String]) -> [String: String] {
-        var mergedHeaders = additionalHeaders
-
+        var mergedHeaders = self.extraHeaders
+        for (key, value) in additionalHeaders {
+            mergedHeaders[key] = value
+        }
         if mergedHeaders[self.unprotectedAuthHeader.key] == nil {
             mergedHeaders[self.unprotectedAuthHeader.key] = self.unprotectedAuthHeader.value
         }

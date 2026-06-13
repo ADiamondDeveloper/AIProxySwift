@@ -10,15 +10,29 @@ import Foundation
 @AIProxyActor final class GeminiDirectService: GeminiService, DirectService, Sendable {
     private let unprotectedAPIKey: String
     private let baseURL: String
+    private let additionalHeaders: [String: String]
+    private let authHeader: (key: String, value: String)
 
     /// This initializer is not public on purpose.
     /// Customers are expected to use the factory `AIProxy.geminiDirectService` defined in AIProxy.swift
     nonisolated init(
         unprotectedAPIKey: String,
-        baseURL: String? = nil
+        baseURL: String? = nil,
+        additionalHeaders: [String: String] = [:],
+        unprotectedAuthHeader: (key: String, value: String)? = nil
     ) {
         self.unprotectedAPIKey = unprotectedAPIKey
         self.baseURL = baseURL ?? "https://generativelanguage.googleapis.com"
+        self.additionalHeaders = additionalHeaders
+        self.authHeader = unprotectedAuthHeader ?? (key: "X-Goog-Api-Key", value: unprotectedAPIKey)
+    }
+
+    /// Caller-supplied headers plus the auth header (default or overridden) and
+    /// any per-request `extra`, with the auth/extra headers taking precedence.
+    private nonisolated func requestHeaders(_ extra: [String: String] = [:]) -> [String: String] {
+        self.additionalHeaders
+            .merging([self.authHeader.key: self.authHeader.value]) { _, native in native }
+            .merging(extra) { _, e in e }
     }
 
     /// Generate content using Gemini. Google puts chat completions, audio transcriptions, and
@@ -44,9 +58,7 @@ import Foundation
             verb: .post,
             secondsToWait: secondsToWait,
             contentType: "application/json",
-            additionalHeaders: [
-                "X-Goog-Api-Key": self.unprotectedAPIKey
-            ]
+            additionalHeaders: self.requestHeaders()
         )
         return try await self.makeRequestAndDeserializeResponse(request)
     }
@@ -75,9 +87,7 @@ import Foundation
             verb: .post,
             secondsToWait: secondsToWait,
             contentType: "application/json",
-            additionalHeaders: [
-                "X-Goog-Api-Key": self.unprotectedAPIKey
-            ]
+            additionalHeaders: self.requestHeaders()
         )
         return try await self.makeRequestAndDeserializeStreamingChunks(request)
     }
@@ -95,9 +105,7 @@ import Foundation
             verb: .post,
             secondsToWait: 60,
             contentType: "application/json",
-            additionalHeaders: [
-                "X-Goog-Api-Key": self.unprotectedAPIKey
-            ]
+            additionalHeaders: self.requestHeaders()
         )
         return try await self.makeRequestAndDeserializeResponse(request)
     }
@@ -132,10 +140,7 @@ import Foundation
             verb: .post,
             secondsToWait: 60,
             contentType: "multipart/related; boundary=\(boundary)",
-            additionalHeaders: [
-                "X-Goog-Upload-Protocol": "multipart",
-                "X-Goog-Api-Key": self.unprotectedAPIKey
-            ]
+            additionalHeaders: self.requestHeaders(["X-Goog-Upload-Protocol": "multipart"])
         )
         let (data, _) = try await BackgroundNetworker.makeRequestAndWaitForData(
             self.urlSession,
@@ -161,9 +166,7 @@ import Foundation
             body: nil,
             verb: .delete,
             secondsToWait: 60,
-            additionalHeaders: [
-                "X-Goog-Api-Key": self.unprotectedAPIKey
-            ]
+            additionalHeaders: self.requestHeaders()
         )
         let (_, _) = try await BackgroundNetworker.makeRequestAndWaitForData(
             self.urlSession,
@@ -185,9 +188,7 @@ import Foundation
             body: nil,
             verb: .get,
             secondsToWait: 60,
-            additionalHeaders: [
-                "X-Goog-Api-Key": self.unprotectedAPIKey
-            ]
+            additionalHeaders: self.requestHeaders()
         )
         let (data, _) = try await BackgroundNetworker.makeRequestAndWaitForData(
             self.urlSession,
@@ -213,9 +214,7 @@ import Foundation
             verb: .post,
             secondsToWait: 60,
             contentType: "application/json",
-            additionalHeaders: [
-                "X-Goog-Api-Key": self.unprotectedAPIKey
-            ]
+            additionalHeaders: self.requestHeaders()
         )
         return try await self.makeRequestAndDeserializeResponse(request)
     }
@@ -234,9 +233,7 @@ import Foundation
             verb: .get,
             secondsToWait: 60,
             contentType: "application/json",
-            additionalHeaders: [
-                "X-Goog-Api-Key": self.unprotectedAPIKey
-            ]
+            additionalHeaders: self.requestHeaders()
         )
         return try await self.makeRequestAndDeserializeResponse(request)
     }
@@ -255,9 +252,7 @@ import Foundation
             verb: .post,
             secondsToWait: 60,
             contentType: "application/json",
-            additionalHeaders: [
-                "X-Goog-Api-Key": self.unprotectedAPIKey
-            ]
+            additionalHeaders: self.requestHeaders()
         )
         let (data, _) = try await BackgroundNetworker.makeRequestAndWaitForData(
             self.urlSession,
@@ -280,9 +275,7 @@ import Foundation
             verb: .get,
             secondsToWait: 60,
             contentType: "application/json",
-            additionalHeaders: [
-                "X-Goog-Api-Key": self.unprotectedAPIKey
-            ]
+            additionalHeaders: self.requestHeaders()
         )
         let (data, _) = try await BackgroundNetworker.makeRequestAndWaitForData(
             self.urlSession,
