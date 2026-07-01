@@ -85,7 +85,7 @@ extension OpenAITextToSpeechRequestBody {
 
 // MARK: -
 extension OpenAITextToSpeechRequestBody {
-    nonisolated public enum Voice: String, Encodable, Sendable {
+    nonisolated public enum Voice: String, Encodable, Sendable, CaseIterable {
         case alloy
         case ash
         case ballad

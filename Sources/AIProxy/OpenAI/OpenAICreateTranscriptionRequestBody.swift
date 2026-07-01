@@ -18,6 +18,14 @@ nonisolated public struct OpenAICreateTranscriptionRequestBody: MultipartFormEnc
     /// ID of the model to use, for example `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`, `gpt-4o-transcribe-diarize`, or `whisper-1`.
     public let model: String
 
+    /// The multipart filename for `file`. Whisper sniffs the audio format from the
+    /// extension, so pass the REAL filename (e.g. `recording.wav`) — a wav/mp3
+    /// upload under the default `aiproxy.m4a` name misdecodes. Defaults to `aiproxy.m4a`.
+    public let fileName: String?
+
+    /// The multipart content type for `file`. Defaults to `audio/mpeg`.
+    public let fileContentType: String?
+
     // MARK: Optional properties
 
     /// The language of the input audio. Supplying the input language in ISO-639-1 format will improve accuracy and latency.
@@ -62,7 +70,12 @@ nonisolated public struct OpenAICreateTranscriptionRequestBody: MultipartFormEnc
 
     public var formFields: [FormField] {
         var fields: [FormField] = [
-            .fileField(name: "file", content: self.file, contentType: "audio/mpeg", filename: "aiproxy.m4a"),
+            .fileField(
+                name: "file",
+                content: self.file,
+                contentType: self.fileContentType ?? "audio/mpeg",
+                filename: self.fileName ?? "aiproxy.m4a"
+            ),
             .textField(name: "model", content: self.model),
             self.language.flatMap { .textField(name: "language", content: $0)},
             self.prompt.flatMap { .textField(name: "prompt", content: $0)},
@@ -124,6 +137,8 @@ nonisolated public struct OpenAICreateTranscriptionRequestBody: MultipartFormEnc
     public init(
         file: Data,
         model: String,
+        fileName: String? = nil,
+        fileContentType: String? = nil,
         language: String? = nil,
         prompt: String? = nil,
         responseFormat: String? = nil,
@@ -137,6 +152,8 @@ nonisolated public struct OpenAICreateTranscriptionRequestBody: MultipartFormEnc
     ) {
         self.file = file
         self.model = model
+        self.fileName = fileName
+        self.fileContentType = fileContentType
         self.language = language
         self.prompt = prompt
         self.responseFormat = responseFormat
