@@ -107,21 +107,31 @@ nonisolated final class DirectURLSessionDataDelegate: NSObject, URLSessionTaskDe
               let secTrust = challenge.protectionSpace.serverTrust else {
             return (.performDefaultHandling, nil)
         }
-        guard let cert = serverLeaf(secTrust),
-              let serverKey = SecCertificateCopyKey(cert),
-              let serverKeyData = SecKeyCopyExternalRepresentation(serverKey, nil) as Data? else {
-            return (.cancelAuthenticationChallenge, nil)
-        }
+        // Match ANY cert in the presented chain (leaf / intermediate / root) so a
+        // pinned stable intermediate/root survives a leaf rotation.
+        let serverKeys = serverPublicKeys(secTrust)
+        let pins = AIProxyDirectPinning.publicKeys
         // enforced with an empty/non-matching pin set → cancel (fail-closed).
-        return AIProxyDirectPinning.publicKeys.contains(serverKeyData)
+        return serverKeys.contains(where: pins.contains)
             ? (.useCredential, URLCredential(trust: secTrust))
             : (.cancelAuthenticationChallenge, nil)
     }
 
-    private static func serverLeaf(_ secTrust: SecTrust) -> SecCertificate? {
+    private static func serverPublicKeys(_ secTrust: SecTrust) -> [Data] {
+        let chain: [SecCertificate]
         if #available(macOS 12.0, iOS 15.0, *) {
-            return (SecTrustCopyCertificateChain(secTrust) as? [SecCertificate])?.first
+            chain = (SecTrustCopyCertificateChain(secTrust) as? [SecCertificate]) ?? []
+        } else {
+            var certs: [SecCertificate] = []
+            let count = SecTrustGetCertificateCount(secTrust)
+            for i in 0..<count {
+                if let c = SecTrustGetCertificateAtIndex(secTrust, i) { certs.append(c) }
+            }
+            chain = certs
         }
-        return SecTrustGetCertificateAtIndex(secTrust, 0)
+        return chain.compactMap { cert in
+            guard let key = SecCertificateCopyKey(cert) else { return nil }
+            return SecKeyCopyExternalRepresentation(key, nil) as Data?
+        }
     }
 }
