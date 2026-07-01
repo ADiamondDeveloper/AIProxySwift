@@ -395,12 +395,23 @@ public enum AIProxy {
     ///
     /// - Parameters:
     ///   - unprotectedAPIKey: Your StabilityAI API key
+    ///   - baseURL: Optional host override (e.g. a transit proxy that swaps in the real
+    ///     Stability key server-side). Defaults to `https://api.stability.ai`.
+    ///   - additionalHeaders: Extra headers attached to every request.
+    ///   - unprotectedAuthHeader: Optional auth-header override. When set it REPLACES the
+    ///     provider-native `Authorization: Bearer` slot (same contract as `openAIDirectService`).
     /// - Returns: An instance of StabilityAIService configured and ready to make requests
     nonisolated public static func stabilityAIDirectService(
-        unprotectedAPIKey: String
+        unprotectedAPIKey: String,
+        baseURL: String? = nil,
+        additionalHeaders: [String: String] = [:],
+        unprotectedAuthHeader: (key: String, value: String)? = nil
     ) -> StabilityAIService {
         return StabilityAIDirectService(
-            unprotectedAPIKey: unprotectedAPIKey
+            unprotectedAPIKey: unprotectedAPIKey,
+            baseURL: baseURL,
+            additionalHeaders: additionalHeaders,
+            unprotectedAuthHeader: unprotectedAuthHeader
         )
     }
 
