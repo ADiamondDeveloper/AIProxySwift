@@ -81,7 +81,10 @@ nonisolated private let kWebsocketDisconnectedEarlyThreshold: TimeInterval = 3
         }
     }
 
-    /// Handles socket errors. We disconnect on all errors.
+    /// Handles socket errors. We disconnect on all errors, but FIRST surface a
+    /// synthetic `.error` to the receiver so the caller can react to a rejected
+    /// handshake (e.g. a transit proxy closing with an app code: 4001 bad
+    /// token, 4029 limit exceeded) instead of hanging in a connecting state.
     private func didReceiveWebSocketError(_ error: NSError) {
         guard !isTearingDown else {
             return
@@ -91,13 +94,22 @@ nonisolated private let kWebsocketDisconnectedEarlyThreshold: TimeInterval = 3
         case kWebsocketDisconnectedErrorCode:
             let disconnectedEarly = Date().timeIntervalSince(setupTime) <= kWebsocketDisconnectedEarlyThreshold
             if disconnectedEarly {
-                logIf(.warning)?.warning("AIProxy: websocket disconnected immediately. Check that you've followed the DeviceCheck integration guide at https://www.aiproxy.com/docs/integration-guide.html")
+                logIf(.warning)?.warning("AIProxy: websocket disconnected immediately. Check the server rejected the handshake (close code below), or that you've followed the DeviceCheck integration guide at https://www.aiproxy.com/docs/integration-guide.html")
             } else {
                 logIf(.debug)?.debug("AIProxy: websocket disconnected normally")
             }
         default:
             logIf(.error)?.error("Received ws error: \(error.localizedDescription)")
         }
+
+        // closeCode is set when the server completed a close frame (.invalid
+        // otherwise — e.g. plain transport failures). Prefer it: app-level
+        // codes are the actionable signal.
+        let closeCode = self.webSocketTask.closeCode
+        let body = closeCode == .invalid
+            ? "ws_error_\(error.code)"
+            : "ws_close_\(closeCode.rawValue)"
+        self.continuation?.yield(.error(OpenAIRealtimeErrorEvent(errorBody: body)))
 
         self.disconnect()
     }

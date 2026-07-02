@@ -122,6 +122,12 @@ nonisolated public enum OpenAIRealtimeMessage: Decodable, Sendable {
 public struct OpenAIRealtimeErrorEvent: Decodable, Sendable {
     public let errorBody: String?
 
+    /// Synthetic events (e.g. a rejected websocket handshake surfaced as
+    /// `ws_close_<code>`) are built by the session itself, not decoded.
+    public init(errorBody: String?) {
+        self.errorBody = errorBody
+    }
+
     private struct ErrorObject: Decodable {
         let message: String?
         let type: String?
