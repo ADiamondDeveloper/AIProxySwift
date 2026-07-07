@@ -10,7 +10,23 @@ import Foundation
 /// Docstrings from: https://docs.perplexity.ai/api-reference/chat-completions
 nonisolated public struct PerplexityChatCompletionResponseBody: Decodable, Sendable {
     /// The list of completion choices the model generated for the input prompt.
+    /// Tolerant: a usage-only trailer chunk may omit `choices` entirely — a
+    /// non-optional decode would throw and get the whole chunk silently
+    /// dropped by `deserialize(fromLine:)`.
     public let choices: [Choice]
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.choices = try container.decodeIfPresent([Choice].self, forKey: .choices) ?? []
+        self.citations = try container.decodeIfPresent([String].self, forKey: .citations)
+        self.created = try container.decodeIfPresent(Int.self, forKey: .created)
+        self.id = try container.decodeIfPresent(String.self, forKey: .id)
+        self.model = try container.decodeIfPresent(String.self, forKey: .model)
+        self.object = try container.decodeIfPresent(String.self, forKey: .object)
+        self.usage = try container.decodeIfPresent(Usage.self, forKey: .usage)
+        self.searchResults = try container.decodeIfPresent([SearchResult].self, forKey: .searchResults)
+        self.images = try container.decodeIfPresent([ImageResult].self, forKey: .images)
+    }
 
     /// Citations for the generated answer.
     public let citations: [String]?
@@ -87,11 +103,16 @@ extension PerplexityChatCompletionResponseBody {
 
 // MARK: - PerplexityChatCompletionResponseBody.Choice.Delta
 extension PerplexityChatCompletionResponseBody.Choice {
+    /// Both fields are optional: OpenAI-style SSE only carries `role` in the
+    /// FIRST delta and finishes with an empty `{}` delta. When these were
+    /// non-optional, every continuation chunk failed to decode and was
+    /// silently dropped by `deserialize(fromLine:)` — the visible symptom was
+    /// a Perplexity reply frozen after its first fragment.
     nonisolated public struct Delta: Decodable, Sendable {
-        public let content: String
-        public let role: PerplexityRole
-        
-        public init(content: String, role: PerplexityRole) {
+        public let content: String?
+        public let role: PerplexityRole?
+
+        public init(content: String?, role: PerplexityRole?) {
             self.content = content
             self.role = role
         }
