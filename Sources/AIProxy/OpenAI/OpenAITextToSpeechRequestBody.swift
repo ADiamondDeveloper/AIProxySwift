@@ -34,13 +34,21 @@ nonisolated public struct OpenAITextToSpeechRequestBody: Encodable {
     /// Default to `1.0`
     public let speed: Float?
 
+    /// The format to stream the audio in. Pass `.sse` to receive server-sent
+    /// events instead of raw audio bytes: the audio then arrives as base64
+    /// deltas and a terminal `speech.audio.done` carries the token usage, which
+    /// the plain audio response does not report at all.
+    /// Not supported by `tts-1` / `tts-1-hd`.
+    public let streamFormat: StreamFormat?
+
     public init(
         input: String,
         model: Model = .tts1,
         voice: OpenAITextToSpeechRequestBody.Voice,
         instructions: String? = nil,
         responseFormat: OpenAITextToSpeechRequestBody.ResponseFormat? = .mp3,
-        speed: Float? = 1.0
+        speed: Float? = 1.0,
+        streamFormat: OpenAITextToSpeechRequestBody.StreamFormat? = nil
     ) {
         self.input = input
         self.model = model
@@ -48,6 +56,7 @@ nonisolated public struct OpenAITextToSpeechRequestBody: Encodable {
         self.instructions = instructions
         self.responseFormat = responseFormat
         self.speed = speed
+        self.streamFormat = streamFormat
     }
     
     private enum CodingKeys: String, CodingKey {
@@ -59,6 +68,16 @@ nonisolated public struct OpenAITextToSpeechRequestBody: Encodable {
         case instructions
         case responseFormat = "response_format"
         case speed
+        case streamFormat = "stream_format"
+    }
+
+    /// How the response is delivered.
+    nonisolated public enum StreamFormat: String, Encodable, Sendable {
+        /// Raw audio bytes (the default). Reports no usage.
+        case audio
+        /// Server-sent events: base64 audio deltas plus a terminal
+        /// `speech.audio.done` carrying token usage.
+        case sse
     }
 }
 

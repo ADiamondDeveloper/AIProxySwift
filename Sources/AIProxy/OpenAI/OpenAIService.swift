@@ -240,6 +240,44 @@ import Foundation
         return try await self.serviceNetworker.makeRequestAndDeserializeStreamingChunks(request)
     }
 
+    /// Initiates a STREAMING create text to speech request to v1/audio/speech.
+    ///
+    /// Streaming is the only shape that reports usage: the plain audio response
+    /// carries no token counts, while the SSE stream ends with a
+    /// `speech.audio.done` event holding them. Audio arrives as base64 deltas —
+    /// concatenate `AudioDelta.audioData` in arrival order to rebuild the file,
+    /// or feed them to a player as they land for progressive playback.
+    ///
+    /// Not supported by `tts-1` / `tts-1-hd`; use `gpt-4o-mini-tts`.
+    ///
+    /// - Parameters:
+    ///   - body: The request body. `streamFormat` is forced to `.sse`.
+    ///   - secondsToWait: Seconds to wait before raising `URLError.timedOut`
+    ///   - additionalHeaders: Optional headers to pass up with the request alongside the lib's default headers
+    /// - Returns: An async sequence of speech streaming events.
+    public func streamingTextToSpeechRequest(
+        body: OpenAITextToSpeechRequestBody,
+        secondsToWait: UInt,
+        additionalHeaders: [String: String] = [:]
+    ) async throws -> AsyncThrowingStream<OpenAITextToSpeechStreamingEvent, Error> {
+        let body = OpenAITextToSpeechRequestBody(
+            input: body.input,
+            model: body.model,
+            voice: body.voice,
+            instructions: body.instructions,
+            responseFormat: body.responseFormat,
+            speed: body.speed,
+            streamFormat: .sse
+        )
+        let request = try await self.requestBuilder.jsonPOST(
+            path: self.resolvedPath("audio/speech"),
+            body: body,
+            secondsToWait: secondsToWait,
+            additionalHeaders: additionalHeaders
+        )
+        return try await self.serviceNetworker.makeRequestAndDeserializeStreamingChunks(request)
+    }
+
     /// Initiates a create text to speech request to v1/audio/speech
     ///
     /// - Parameters:
