@@ -13,13 +13,20 @@ import Foundation
     private let baseURL: String
     private let authHeader: String
     private let authValue: String
+    private let additionalHeaders: [String: String]
 
     /// This initializer is not public on purpose.
     /// Customers are expected to use the factory `AIProxy.generalDirectService` defined in AIProxy.swift
-    nonisolated init(baseURL: String, authHeader: String, authValue: String) {
+    nonisolated init(
+        baseURL: String,
+        authHeader: String,
+        authValue: String,
+        additionalHeaders: [String: String]
+    ) {
         self.baseURL = baseURL
         self.authHeader = authHeader
         self.authValue = authValue
+        self.additionalHeaders = additionalHeaders
     }
 
     /// Makes a POST request directly to the provider and deserializes the response.
@@ -36,7 +43,7 @@ import Foundation
             verb: .post,
             secondsToWait: secondsToWait,
             contentType: "application/json",
-            additionalHeaders: [authHeader: authValue]
+            additionalHeaders: requestHeaders
         )
         return try await self.makeRequestAndDeserializeResponse(request)
     }
@@ -53,9 +60,17 @@ import Foundation
             verb: .get,
             secondsToWait: secondsToWait,
             contentType: "application/json",
-            additionalHeaders: [authHeader: authValue]
+            additionalHeaders: requestHeaders
         )
         return try await self.makeRequestAndDeserializeResponse(request)
+    }
+
+    /// Authentication wins on collision so a caller can add metadata but can
+    /// never accidentally replace the credential header.
+    private var requestHeaders: [String: String] {
+        var headers = additionalHeaders
+        headers[authHeader] = authValue
+        return headers
     }
 
     /// Makes a GET request to an absolute URL (no auth header).

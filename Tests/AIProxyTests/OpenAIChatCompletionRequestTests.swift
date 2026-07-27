@@ -205,13 +205,21 @@ final class OpenAIChatCompletionRequestTests: XCTestCase {
     }
 
     func testAssistantMessageWithMultiplePartsIsEncodable() throws {
-        let assistantMessage: OpenAIChatCompletionRequestBody.Message = .assistant(content: .parts(["hello", "world"]))
+        let assistantMessage: OpenAIChatCompletionRequestBody.Message = .assistant(
+            content: .parts([.text("hello"), .text("world")])
+        )
         XCTAssertEqual(
             """
             {
               "content" : [
-                "hello",
-                "world"
+                {
+                  "text" : "hello",
+                  "type" : "text"
+                },
+                {
+                  "text" : "world",
+                  "type" : "text"
+                }
               ],
               "role" : "assistant"
             }

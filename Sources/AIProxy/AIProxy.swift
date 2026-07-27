@@ -449,16 +449,19 @@ public enum AIProxy {
     ///   - baseURL: The provider's base URL, e.g. "https://api.bfl.ai"
     ///   - authHeader: The header name for authentication, e.g. "x-key" or "Authorization"
     ///   - authValue: The header value, e.g. the API key or "Bearer <token>"
+    ///   - additionalHeaders: Metadata headers attached to every request.
     /// - Returns: An instance of GeneralDirectService ready to make requests
     nonisolated public static func generalDirectService(
         baseURL: String,
         authHeader: String,
-        authValue: String
+        authValue: String,
+        additionalHeaders: [String: String] = [:]
     ) -> GeneralDirectService {
         return GeneralDirectService(
             baseURL: baseURL,
             authHeader: authHeader,
-            authValue: authValue
+            authValue: authValue,
+            additionalHeaders: additionalHeaders
         )
     }
 

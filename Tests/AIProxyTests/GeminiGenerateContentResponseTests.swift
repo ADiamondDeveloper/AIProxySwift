@@ -111,7 +111,10 @@ final class GeminiGenerateContentResponseBodyTests: XCTestCase {
         }
         """#
         let body = try GeminiGenerateContentResponseBody.deserialize(from: sampleResponse)
-        if case let .functionCall(name: name, args: args) = body.candidates?.first?.content?.parts?.first {
+        guard let firstPart = body.candidates?.first?.content?.parts?.first else {
+            return XCTFail()
+        }
+        if case let .functionCall(name: name, args: args, thoughtSignature: _) = firstPart {
             XCTAssertEqual("controlLight", name)
             XCTAssertEqual(50, args!["brightness"] as? Int)
             XCTAssertEqual("cool", args!["colorTemperature"] as? String)
@@ -285,7 +288,7 @@ final class GeminiGenerateContentResponseBodyTests: XCTestCase {
             return
         }
 
-        if case let .text(txt) = candidate.content?.parts?.first {
+        if case let .text(txt, thoughtSignature: _) = candidate.content?.parts?.first {
             XCTAssertEqual("As of February 27, 2025, here's the price<snip>", txt)
         } else {
             XCTFail()
